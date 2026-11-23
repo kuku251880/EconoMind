@@ -10,6 +10,7 @@ from sqlalchemy.exc import OperationalError
 
 from backend.accounts import find_account, require_database, router as accounts_router
 from backend.dataset_routes import router as datasets_router
+from backend.forecast_routes import router as forecast_router
 from backend.research import router as research_router
 from backend.series import INDICATORS, quarter_number, query_series
 
@@ -28,6 +29,7 @@ app = FastAPI(title="EconoMind API", max_body_size=2 * 1024 * 1024 + 65536)
 app.include_router(accounts_router)
 app.include_router(datasets_router)
 app.include_router(research_router)
+app.include_router(forecast_router)
 
 
 @app.middleware("http")

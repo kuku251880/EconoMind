@@ -96,3 +96,23 @@ $env:DEEPSEEK_API_KEY = Read-Host 'DeepSeek API Key' -MaskInput
 默认模型为 `deepseek-flash`。可用 `ECONOMIND_DEEPSEEK_MODEL` 指定支持 Responses 函数调用和结构化输出的模型。启动前端，登录后选择数据集和季度范围。在趋势图下方的「AI 研究助手」选择「数据问答」或「研究报告初稿」。可同时选择 GDP 和 CPI，每次最多覆盖 40 个季度。用示例数据询问「最新 GDP 同比和环比是多少？」可以对照表格与引用链接复核。
 
 生成时，后端将问题和选定指标的观测值发送给 DeepSeek。数据来源标签和账号信息由本平台保留。缺少观测值时直接反馈，缺少密钥时显示配置提示。普通指标仪表盘仍可使用。
+
+## 回测季度预测基线
+
+在项目根目录运行以下命令。输入沿用 CSV 导入格式，命令从文件读取数据。
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.forecast_cli data/sample-quarterly.csv --indicator gdp
+```
+
+基线用紧邻的上一季度实际值预测下一季度。输出每个可回测季度的实际值、预测值和绝对误差，以及合计的 MAE（平均绝对误差）和 RMSE（均方根误差）。两项指标与原始观测值使用同一单位。找不到上一季度观测值时跳过该期。若没有任何可回测的季度，两项误差为 `null`。样例只有一个有效 GDP 回测点，误差为 11 亿元。
+
+用连续的合成样例比较两种方法时，加上 `--compare`。
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.forecast_cli data/sample-forecast.csv --indicator gdp --compare
+```
+
+也可以登录仪表盘，上传 `data/sample-forecast.csv` 并查看「季度预测比较」。线性趋势模型用目标季度之前连续四期拟合直线，并预测下一期。基线沿用上一季度的实际值。回测仅使用所选范围中的数据，两个方法共用同一批目标季度。遇到缺口，需要重新累积四个连续季度。
+
+合成样例上有六个可比较季度，基线 MAE 为 4、RMSE 约为 4.041452，趋势模型 MAE 为 0.5、RMSE 约为 0.645497，单位均为亿元。2025-Q3 的估计分别为 136 和 140 亿元，它未纳入历史回测。结果用于复核计算和比较流程，实际使用时须在目标数据上重新评估。

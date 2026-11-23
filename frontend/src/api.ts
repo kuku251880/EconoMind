@@ -164,3 +164,31 @@ export function fetchResearch(
     signal,
   })
 }
+
+interface ForecastMetrics {
+  mae: string | null
+  rmse: string | null
+}
+
+interface ForecastPoint {
+  period: string
+  baseline: string
+  linear_trend: string
+}
+
+export interface ForecastComparison {
+  unit: string
+  evaluated_count: number
+  skipped_count: number
+  baseline_metrics: ForecastMetrics
+  linear_metrics: ForecastMetrics
+  predictions: (ForecastPoint & { actual: string })[]
+  next_forecast: ForecastPoint | null
+}
+
+export function fetchForecast({ datasetId, code, start, end }: Filters, signal: AbortSignal) {
+  const query = new URLSearchParams({ start, end })
+  return apiRequest<ForecastComparison>(
+    `/datasets/${encodeURIComponent(datasetId)}/indicators/${code}/forecast?${query}`, { signal },
+  )
+}

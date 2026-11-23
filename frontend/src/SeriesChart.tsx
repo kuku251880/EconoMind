@@ -1,16 +1,20 @@
 import { LineChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent } from 'echarts/components'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { init, use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 import type { SeriesPoint } from './api'
 
-use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
+use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
-export default function SeriesChart({ points, unit, name }: {
-  points: SeriesPoint[]
+type ChartPoint = Pick<SeriesPoint, 'period' | 'value'>
+
+export default function SeriesChart({ points, unit, name, label, comparisons }: {
+  points: ChartPoint[]
   unit: string
   name: string
+  label?: string
+  comparisons?: { name: string; points: ChartPoint[] }[]
 }) {
   const container = useRef<HTMLDivElement>(null)
 
@@ -24,7 +28,8 @@ export default function SeriesChart({ points, unit, name }: {
     const timeline = Array.from({ length: end - start + 1 }, (_, offset) => start + offset)
     chart.setOption({
       animation: false,
-      grid: { left: 20, right: 20, top: 18, bottom: 14, containLabel: true },
+      grid: { left: 20, right: 20, top: comparisons ? 45 : 18, bottom: 14, containLabel: true },
+      legend: comparisons ? { top: 5 } : undefined,
       tooltip: { trigger: 'axis', renderMode: 'richText' },
       xAxis: {
         type: 'category',
@@ -42,8 +47,18 @@ export default function SeriesChart({ points, unit, name }: {
       series: [{
         name, type: 'line', data: timeline.map((quarter) => samples.get(quarter) ?? null),
         symbolSize: 8, itemStyle: { color: '#087f68' }, lineStyle: { width: 3 },
-        areaStyle: { color: 'rgba(8, 127, 104, 0.09)' },
-      }],
+        areaStyle: comparisons ? undefined : { color: 'rgba(8, 127, 104, 0.09)' },
+      }, ...(comparisons ?? []).map((comparison, index) => {
+        const values = new Map(comparison.points.map((point) => [quarterIndex(point.period), Number(point.value)]))
+        const color = index === 0 ? '#536a9e' : '#a55019'
+        return {
+          name: comparison.name,
+          type: 'line',
+          data: timeline.map((quarter) => values.get(quarter) ?? null),
+          itemStyle: { color },
+          lineStyle: { width: 2, type: index === 0 ? 'dashed' : 'dotted' },
+        }
+      })],
     })
     const resize = new ResizeObserver(() => chart.resize())
     resize.observe(container.current)
@@ -51,7 +66,7 @@ export default function SeriesChart({ points, unit, name }: {
       resize.disconnect()
       chart.dispose()
     }
-  }, [points, name])
+  }, [points, name, comparisons])
 
-  return <div ref={container} className="h-72 w-full sm:h-88" role="img" aria-label={`${name}季度趋势，单位${unit}`} />
+  return <div ref={container} className="h-72 w-full sm:h-88" role="img" aria-label={`${label ?? name + "季度趋势"}，单位${unit}`} />
 }
