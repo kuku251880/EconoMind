@@ -1,43 +1,138 @@
 @import "tailwindcss";
 
 :root {
-  color: #172c24;
-  background: #f4f5f1;
+  color: #18352f;
+  background: #f4f6f3;
   font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
 }
 
 .brand-mark {
-  @apply flex h-9 w-9 items-end justify-center gap-0.5 rounded-lg bg-[#08715d] p-2;
+  @apply flex h-9 w-9 shrink-0 items-end justify-center gap-0.5 rounded-lg p-2;
+  background: #175748;
 }
-.brand-mark i { @apply w-1 rounded-t-sm bg-[#cdedda]; }
+.brand-mark i { @apply w-1 rounded-t-sm bg-[#dbefc8]; }
 .brand-mark i:nth-child(1) { height: 40%; }
 .brand-mark i:nth-child(2) { height: 69%; }
 .brand-mark i:nth-child(3) { height: 100%; }
 
-.panel { @apply rounded-xl border border-[#dce5de] bg-[#fcfdfa] shadow-xs; }
-.metric { @apply p-5; }
-.notice { @apply px-5 py-8 text-sm; }
+.auth-page { max-width: 78rem; margin: auto; padding: 0 clamp(1rem, 4vw, 4rem) 2rem; }
+.auth-topbar, .app-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .65rem 1rem;
+  min-height: 4.75rem;
+}
+.auth-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  min-height: clamp(30rem, 67vh, 44rem);
+  margin-top: clamp(1rem, 5vh, 4rem);
+  overflow: hidden;
+  border: 1px solid #cfdad1;
+  border-radius: 1.4rem;
+  background: white;
+  box-shadow: 0 16px 58px -32px #294d3a55;
+}
+.auth-cover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: linear-gradient(145deg, #123f37, #173b32 55%, #395d44);
+  color: #f2f6df;
+}
+.cover-engraving {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-image: linear-gradient(#d4ebbc0c 1px, transparent 1px), linear-gradient(90deg, #d4ebbc0c 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+}
+.cover-engraving::before, .cover-engraving::after {
+  content: "";
+  position: absolute;
+  inset: 25% -40% -36% -20%;
+  transform: rotate(-25deg);
+  background: repeating-radial-gradient(ellipse at 50% 115%, transparent 0 12px, #d5e8a9a8 13px, transparent 14px 18px);
+}
+.cover-engraving::after {
+  inset: 31% -16% -36% -31%;
+  transform: rotate(22deg);
+  opacity: .52;
+}
+.cover-caption { position: relative; padding: clamp(1.75rem, 4vw, 3.75rem); }
+.cover-caption > p:first-child { font-size: .93rem; font-weight: 500; color: #d3e3cd; }
+.cover-title {
+  margin-top: .6rem;
+  font: normal clamp(3rem, 5.8vw, 5.25rem)/1.08 Georgia, "Times New Roman", serif;
+  letter-spacing: -.065em;
+}
+.auth-form {
+  width: min(100%, 30rem);
+  align-self: center;
+  justify-self: center;
+  padding: clamp(1.5rem, 4vw, 3.8rem);
+}
+.auth-title, .workspace-title { font-weight: 650; letter-spacing: -.035em; line-height: 1.22; }
+.auth-title { font-size: clamp(1.55rem, 2.2vw, 2.05rem); }
+.auth-switch { background: transparent; color: #215a47; white-space: normal; }
+.auth-switch:hover { background: #eff5ee; }
+
+.workspace-width { width: min(100% - 2rem, 76rem); margin-inline: auto; }
+.app-header { border-bottom: 1px solid #d8e2d9; background: #fcfdfb; }
+.workspace-heading { margin: 0 0 1.5rem; }
+.workspace-title { font-size: clamp(1.8rem, 3.4vw, 2.85rem); }
+.workspace-tools { display: grid; gap: 1rem; margin-bottom: 1.25rem; align-items: start; }
+.query-fields, .import-fields { display: grid; gap: .85rem; align-items: end; }
+.import-fields { padding: .65rem 1.25rem 1.25rem; }
+.history-list { max-height: 17rem; overflow-y: auto; }
+.query-hint { border: 1px dashed #aebfb4; border-radius: .85rem; text-align: center; color: #486356; }
+@media (min-width: 36rem) {
+  .workspace-width { width: min(100% - 4rem, 76rem); }
+  .query-fields, .import-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .import-help { grid-column: 2; grid-row: 2; align-self: center; }
+  .query-fields button, .import-fields button { justify-self: start; }
+}
+@media (min-width: 62rem) {
+  .workspace-tools { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+}
+@media (max-width: 45rem) {
+  .auth-layout { grid-template-columns: 1fr; min-height: auto; max-width: 31rem; margin: .5rem auto 0; }
+  .auth-cover { min-height: 8rem; }
+  .cover-caption { padding: 1.25rem 1.5rem; }
+  .cover-title { font-size: 2.75rem; }
+  .cover-engraving { left: 45%; }
+}
+@media (max-width: 35.99rem) {
+  .app-toolbar { padding-block: .65rem; }
+  .app-toolbar .secondary-button { padding-inline: .65rem; }
+}
+
+.panel { @apply rounded-xl border border-[#d6e0d8] bg-white shadow-xs; }
+.metric { @apply p-5; border-top: 3px solid #b7ccba; }
+.metric:first-child { border-top-color: #186349; background: #f1f7ef; }
+.notice { @apply px-5 py-6 text-sm; }
 .section-heading { @apply flex flex-wrap items-center justify-between gap-2 px-5 pb-2 pt-5; }
 .section-heading h2 { @apply text-lg font-semibold; }
 .section-heading p { @apply mt-1 text-sm text-stone-600; }
 .series-key { @apply rounded-md bg-[#e5f3eb] px-2.5 py-1 text-xs font-semibold text-[#075947]; }
 
 label { @apply block min-w-0 text-sm font-medium; }
-input, select {
-  @apply mt-1.5 block h-11 w-full rounded-lg border border-[#cdd9d0] bg-white px-3 text-sm;
+input:not([type="file"]):not([type="checkbox"]), select {
+  @apply mt-1.5 block h-11 w-full rounded-lg border border-[#bdcfc2] bg-white px-3 text-sm;
 }
 button {
-  @apply h-11 cursor-pointer whitespace-nowrap rounded-lg bg-[#08715d] px-5 text-sm font-semibold text-white hover:bg-[#065b4b];
+  @apply min-h-11 cursor-pointer rounded-lg bg-[#175c47] px-5 py-2 text-sm font-semibold text-white hover:bg-[#104937];
 }
 input:focus-visible, select:focus-visible, button:focus-visible {
   @apply outline-2 outline-offset-2 outline-[#08715d];
 }
 th, td { @apply whitespace-nowrap border-b border-[#e6ece6] px-2.5 py-3 sm:px-5; }
 tbody th { @apply font-medium; }
+th:not(:first-child), td { text-align: right; }
+tbody tr:nth-child(even) { background: #f8faf7; }
+tbody tr:hover { background: #edf4ef; }
 
-.secondary-button {
-  @apply border border-[#cdd9d0] bg-white text-[#075947] hover:bg-[#eaf3ed];
-}
-button:disabled {
-  @apply cursor-not-allowed opacity-60;
-}
+.secondary-button { @apply border border-[#c7d6ca] bg-white text-[#175943] hover:bg-[#edf4ee]; }
+button:disabled { @apply cursor-not-allowed opacity-60; }

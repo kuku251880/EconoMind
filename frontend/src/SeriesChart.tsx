@@ -4,6 +4,7 @@ import { init, use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { useEffect, useRef } from 'react'
 import type { SeriesPoint } from './api'
+import { useLanguage } from './i18n'
 
 use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
@@ -16,6 +17,7 @@ export default function SeriesChart({ points, unit, name, label, comparisons }: 
   label?: string
   comparisons?: { name: string; points: ChartPoint[] }[]
 }) {
+  const { t } = useLanguage()
   const container = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -68,5 +70,5 @@ export default function SeriesChart({ points, unit, name, label, comparisons }: 
     }
   }, [points, name, comparisons])
 
-  return <div ref={container} className="h-72 w-full sm:h-88" role="img" aria-label={`${label ?? name + "季度趋势"}，单位${unit}`} />
+  return <div ref={container} className="h-72 w-full sm:h-88" role="img" aria-label={t(`${label ?? name + "季度趋势"}，单位${unit}`, `${label ?? name + " trend"}, in ${unit}`)} />
 }

@@ -1,9 +1,6 @@
-export const indicators = {
-  gdp: '国内生产总值',
-  cpi: '居民消费价格指数',
-} as const
+import type { UiText } from './i18n'
 
-export type IndicatorCode = keyof typeof indicators
+export type IndicatorCode = 'gdp' | 'cpi'
 
 export interface Filters {
   datasetId: string
@@ -28,17 +25,12 @@ export interface IndicatorSeries {
   points: SeriesPoint[]
 }
 
-export async function fetchSeries(filters: Filters, signal: AbortSignal): Promise<IndicatorSeries> {
-  const { datasetId, code, start, end } = filters
+export function fetchSeries({ datasetId, code, start, end }: Filters, signal: AbortSignal) {
   const query = new URLSearchParams({ start, end })
-  const response = await fetch(
-    `/api/v1/datasets/${encodeURIComponent(datasetId)}/indicators/${code}/series?${query}`,
+  return apiRequest<IndicatorSeries>(
+    `/datasets/${encodeURIComponent(datasetId)}/indicators/${code}/series?${query}`,
     { signal, headers: { Accept: 'application/json' } },
   )
-  if (response.status === 404) throw new Error('找不到该数据集。请核对导入命令返回的编号。')
-  if (response.status === 422) throw new Error('查询条件无效。请检查数据集编号和季度范围。')
-  if (!response.ok) throw new Error('数据服务暂不可用。请检查后端和数据库是否已启动。')
-  return response.json()
 }
 
 export interface Account {
@@ -57,32 +49,58 @@ export interface DatasetRecord {
 }
 
 class ApiError extends Error {
-  readonly status: number
-
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
+  constructor(readonly status: number, readonly text: UiText) {
+    super(text[1])
   }
+}
+
+const apiDetails: Record<string, UiText> = {
+  'expected header code,period,value': ['表头应为 code,period,value。', 'Expected the header code,period,value.'],
+  'expected three columns': ['每行应包含三列。', 'Each row must contain three columns.'],
+  'unknown indicator code': ['指标代码应为 gdp 或 cpi。', 'Use gdp or cpi for the indicator code.'],
+  'expected a quarter like 2025-Q1 with year 0001 to 9999': ['季度格式应类似 2025-Q1，年份为 0001 至 9999。', 'Use a quarter such as 2025-Q1, with a year from 0001 to 9999.'],
+  'expected up to 12 integer and 6 decimal digits': ['数值最多有 12 位整数和 6 位小数。', 'Use at most 12 integer digits and 6 decimal places.'],
+  'duplicate indicator and quarter': ['该指标和季度重复。', 'This indicator and quarter appear more than once.'],
+  'CSV has no observations': ['CSV 没有观测值。', 'The CSV contains no observations.'],
+  'CSV must be UTF-8': ['CSV 必须使用 UTF-8 编码。', 'The CSV must use UTF-8 encoding.'],
+  'source must be 1 to 200 characters': ['数据来源应为 1 至 200 个字符。', 'The data source must be 1–200 characters.'],
+  '季度格式应类似 2025-Q1。': ['季度格式应类似 2025-Q1。', 'Use a quarter such as 2025-Q1.'],
+  'AI 尚未配置。请在后端设置 DEEPSEEK_API_KEY。': ['AI 尚未配置。请在后端设置 DEEPSEEK_API_KEY。', 'AI is unavailable. Set DEEPSEEK_API_KEY on the server.'],
+  'DeepSeek API Key 无效，请检查后端配置。': ['DeepSeek API Key 无效，请检查后端配置。', 'The DeepSeek API key is invalid. Check the server configuration.'],
+  'DeepSeek API 余额不足，请检查账户余额。': ['DeepSeek API 余额不足，请检查账户余额。', 'The DeepSeek API balance is too low. Check the account balance.'],
+  'DeepSeek API 请求受限，请稍后重试。': ['DeepSeek API 请求受限，请稍后重试。', 'DeepSeek is rate-limiting requests. Try again later.'],
+  'DeepSeek API 暂时无法返回结果，请稍后重试。': ['DeepSeek API 暂时无法返回结果，请稍后重试。', 'DeepSeek could not return a result. Try again later.'],
+  'AI 服务暂时无法返回有效结果，请稍后重试。': ['AI 服务暂时无法返回有效结果，请稍后重试。', 'The AI service did not return a valid result. Try again later.'],
+  'AI 返回了无法核对来源的内容，请重试。': ['AI 返回了无法核对来源的内容，请重试。', 'The AI returned citations that could not be verified. Try again.'],
+}
+
+function apiErrorText(status: number, detail: unknown): UiText {
+  if (typeof detail === 'string') {
+    if (Object.hasOwn(apiDetails, detail)) return apiDetails[detail]
+    const row = /^line (\d+): (.+)$/.exec(detail)
+    if (row) {
+      const reason = Object.hasOwn(apiDetails, row[2]) ? apiDetails[row[2]] : ['CSV 格式无效。', 'Invalid CSV format.']
+      return [`第 ${row[1]} 行：${reason[0]}`, `Line ${row[1]}: ${reason[1]}`]
+    }
+    const limit = /^请选择顺序正确且不超过 (\d+) 个季度的范围。$/.exec(detail)
+    if (limit) return [detail, `Select a date range in order of up to ${limit[1]} quarters.`]
+  }
+  const messages: Record<number, UiText> = {
+    401: ['请先登录，或检查邮箱和密码。', 'Sign in, or check your email and password.'],
+    403: ['请求未获授权，请刷新后重试。', 'Request not authorized. Refresh and try again.'],
+    404: ['找不到该数据集。请核对导入记录中的编号。', 'Dataset not found. Check its ID in Import history.'],
+    409: ['该邮箱已注册，请直接登录。', 'This email is already registered. Please sign in.'],
+    413: ['CSV 文件不能超过 2 MiB。', 'CSV files must be 2 MiB or smaller.'],
+    422: ['请检查输入格式。', 'Check the input format.'],
+  }
+  return messages[status] ?? ['服务暂不可用，请稍后重试。', 'The service is unavailable. Try again later.']
 }
 
 async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, options)
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { detail?: unknown } | null
-    const messages: Record<number, string> = {
-      401: '请先登录，或检查邮箱和密码。',
-      403: '请求未获授权，请刷新后重试。',
-      409: '该邮箱已注册，请直接登录。',
-      413: 'CSV 文件不能超过 2 MiB。',
-      422: typeof body?.detail === 'string' ? body.detail : '请检查输入格式。',
-    }
-    if (path.endsWith('/research')) {
-      messages[404] = '找不到该数据集。'
-      if ((response.status === 502 || response.status === 503) && typeof body?.detail === 'string') {
-        messages[response.status] = body.detail
-      }
-    }
-    throw new ApiError(response.status, messages[response.status] ?? '服务暂不可用，请稍后重试。')
+    throw new ApiError(response.status, apiErrorText(response.status, body?.detail))
   }
   return response.status === 204 ? undefined as T : response.json()
 }
@@ -120,8 +138,10 @@ export function uploadDataset(form: FormData) {
   })
 }
 
-export function errorMessage(error: unknown) {
-  return error instanceof ApiError ? error.message : '无法连接服务，请检查后端是否已启动。'
+export function errorMessage(error: unknown): UiText {
+  return error instanceof ApiError
+    ? error.text
+    : ['无法连接服务，请检查后端是否已启动。', 'Unable to reach the service. Check that the backend is running.']
 }
 
 export interface ResearchSection {
