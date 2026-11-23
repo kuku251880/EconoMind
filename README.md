@@ -8,7 +8,7 @@ MVP 覆盖注册登录、CSV 导入、指标查询与增速计算、图表展示
 - `frontend/` 存放浏览器界面代码。
 - `docs/` 存放架构、学习和更新记录。
 
-项目目前已有后端 API、PostgreSQL 数据存储、命令行 CSV 导入和季度指标仪表盘。参见[路线图](ROADMAP.md)和[架构设计](docs/ARCHITECTURE.md)。
+本地 MVP 已支持注册登录、CSV 导入和季度指标分析。参见[路线图](ROADMAP.md)和[架构设计](docs/ARCHITECTURE.md)。
 
 ## 运行后端
 
@@ -52,7 +52,7 @@ Remove-Variable economindPassword
 Invoke-RestMethod 'http://127.0.0.1:8000/api/v1/datasets/1/indicators/gdp/series?start=2025-Q1&end=2025-Q1' | ConvertTo-Json -Depth 5
 ```
 
-样例为合成数据。GDP 的 2025 年第一季度值为 121，同比为 21%，环比为 10%。精确小数在 JSON 中以字符串表示，缺失或为零的基期对应 `null`。CSV 须为 UTF-8，首行为 `code,period,value`，文件上限为 2 MiB。重复的指标和季度会被拒绝，每次成功导入都会得到独立的数据集编号。若接口返回 503，请检查 PostgreSQL 是否启动、连接变量是否在启动后端的终端中设置，以及是否已执行建表命令。网页上传和用户权限将在 MVP 阶段接入。
+样例为合成数据。GDP 的 2025 年第一季度值为 121，同比为 21%，环比为 10%。精确小数在 JSON 中以字符串表示，缺失或为零的基期对应 `null`。CSV 须为 UTF-8，首行为 `code,period,value`，文件上限为 2 MiB。重复的指标和季度会被拒绝，每次成功导入都会得到独立的数据集编号。若接口返回 503，请检查 PostgreSQL 是否启动、连接变量是否在启动后端的终端中设置，以及是否已执行建表命令。网页上传和账号权限的使用方法见后文。
 
 ## 运行前端仪表盘
 
@@ -63,8 +63,22 @@ npm --prefix frontend ci
 npm --prefix frontend run dev
 ```
 
-打开终端显示的地址（默认 `http://127.0.0.1:5173`），输入导入返回的数据集编号，选择 GDP 或 CPI，填写类似 `2025-Q1` 的季度并点击「查询指标」。页面显示原始观测值、同比、环比和数据来源。缺少中间季度时，趋势图保留空档。
+打开终端显示的地址（默认 `http://127.0.0.1:5173`），注册并登录后，可从导入记录选择数据集，或输入数据集编号。选择 GDP 或 CPI，填写类似 `2025-Q1` 的季度并点击「查询指标」。页面显示原始观测值、同比、环比和数据来源。缺少中间季度时，趋势图保留空档。
 
 Vite 将 `/api` 请求转发给本地 FastAPI。若后端改用其他端口，在启动 Vite 的终端设置 `$env:ECONOMIND_API_TARGET = 'http://127.0.0.1:8001'`。若页面提示数据集不存在，请使用当前数据库导入时输出的编号。
 
 运行 `npm --prefix frontend run build` 可执行 TypeScript 检查并生成 `frontend/dist/`。部署时由同一站点提供构建产物并将 `/api` 转发到后端。
+
+## 完成一次 MVP 操作
+
+如果从第四阶段升级，请先更新后端依赖，并在设置了数据库连接变量的 PowerShell 中重新执行建表命令。命令会补齐账号和会话结构，保留已有数据。
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+.\.venv\Scripts\python.exe -m backend.data_cli init
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app
+```
+
+打开前端后，先注册并登录。在「导入记录」填写来源，通过网页上传 `data/sample-quarterly.csv`。导入成功后页面会打开对应图表。以后可从导入记录点击「查看指标」。网页导入默认仅上传账号可见，命令行导入适用于可公开查询的共享数据。若复制了 PostgreSQL 命令行样例，建议用合成数据验证。
+
+本地使用 HTTP，部署到 HTTPS 时为后端配置 `ECONOMIND_SECURE_COOKIES=1`。运行普通测试用 `.\.venv\Scripts\python.exe -m pytest -q backend/tests`。要运行 PostgreSQL 集成测试，请把 `ECONOMIND_TEST_DATABASE_URL` 指向允许创建和清理临时 schema 的测试数据库。

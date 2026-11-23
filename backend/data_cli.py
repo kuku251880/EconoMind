@@ -1,12 +1,9 @@
 import argparse
-from io import StringIO
 from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.series import database_url, engine_for, import_csv, init_database
-
-MAX_CSV_BYTES = 2 * 1024 * 1024
+from backend.series import MAX_CSV_BYTES, database_url, decode_csv, engine_for, import_csv, init_database
 
 
 def main():
@@ -30,14 +27,8 @@ def main():
             return
         with args.file.open("rb") as file:
             content = file.read(MAX_CSV_BYTES + 1)
-        if len(content) > MAX_CSV_BYTES:
-            raise ValueError("CSV exceeds the 2 MiB limit")
-        dataset_id = import_csv(
-            engine, StringIO(content.decode("utf-8-sig"), newline=""), args.source,
-        )
+        dataset_id = import_csv(engine, decode_csv(content), args.source)
         print(f"dataset_id={dataset_id}")
-    except UnicodeDecodeError:
-        parser.exit(1, "Import failed: CSV must be UTF-8\n")
     except (OSError, ValueError) as error:
         parser.exit(1, f"Operation failed: {error}\n")
     except SQLAlchemyError as error:

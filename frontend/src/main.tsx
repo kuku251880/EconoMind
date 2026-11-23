@@ -1,15 +1,18 @@
 import { StrictMode, Suspense, lazy, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
-import { fetchSeries, indicators } from './api'
-import type { Filters, IndicatorCode, IndicatorSeries } from './api'
+import { currentAccount, errorMessage, fetchSeries, indicators, logout } from './api'
+import type { Account, DatasetRecord, Filters, IndicatorCode, IndicatorSeries } from './api'
+import { AccountForm } from './AccountForm'
+import { DatasetWorkspace } from './DatasetWorkspace'
 import './styles.css'
 
 const SeriesChart = lazy(() => import('./SeriesChart'))
-const defaults: Filters = { datasetId: '1', code: 'gdp', start: '2024-Q1', end: '2025-Q1' }
+const defaults: Filters = { datasetId: '', code: 'gdp', start: '2024-Q1', end: '2025-Q1' }
 const periodPattern = '(?!0000)[0-9]{4}-Q[1-4]'
 
 type QueryResult =
+  | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ready'; series: IndicatorSeries }
@@ -86,13 +89,16 @@ function Results({ series }: { series: IndicatorSeries }) {
   )
 }
 
-function Dashboard() {
+function Dashboard({ account, onLogout }: { account: Account; onLogout: () => void }) {
   const [draft, setDraft] = useState(defaults)
-  const [filters, setFilters] = useState(defaults)
+  const [filters, setFilters] = useState<Filters | null>(null)
   const [validation, setValidation] = useState('')
-  const [result, setResult] = useState<QueryResult>({ status: 'loading' })
+  const [result, setResult] = useState<QueryResult>({ status: 'idle' })
+  const [leaving, setLeaving] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
 
   useEffect(() => {
+    if (!filters) return
     const controller = new AbortController()
     fetchSeries(filters, controller.signal).then(
       (series) => { if (!controller.signal.aborted) setResult({ status: 'ready', series }) },
@@ -108,6 +114,33 @@ function Dashboard() {
     )
     return () => controller.abort()
   }, [filters])
+
+  function explore(record: DatasetRecord) {
+    if (!record.first_period || !record.last_period || record.codes.length === 0) return
+    const next: Filters = {
+      datasetId: String(record.id),
+      code: record.codes.includes(draft.code) ? draft.code : record.codes[0],
+      start: record.first_period,
+      end: record.last_period,
+    }
+    setValidation('')
+    setDraft(next)
+    setResult({ status: 'loading' })
+    setFilters(next)
+  }
+
+  async function signOut() {
+    setLeaving(true)
+    setLogoutError('')
+    try {
+      await logout()
+      onLogout()
+    } catch (failure) {
+      setLogoutError(errorMessage(failure))
+    } finally {
+      setLeaving(false)
+    }
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -128,13 +161,18 @@ function Dashboard() {
             <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>
             <span className="text-lg">EconoMind</span>
           </div>
-          <span className="text-sm text-stone-600">经济指标</span>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="hidden truncate text-sm text-stone-600 sm:block">{account.email}</span>
+            <button type="button" className="secondary-button" onClick={signOut} disabled={leaving}>退出登录</button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">季度指标仪表盘</h1>
         </div>
+        {logoutError && <p className="mb-3 text-sm text-red-800" role="alert">{logoutError}</p>}
+        <DatasetWorkspace onExplore={explore} />
         <form className="panel mb-5 p-5" onSubmit={submit} aria-label="指标查询">
           <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1.25fr_1fr_1fr_auto]">
             <label>数据集编号
@@ -160,6 +198,7 @@ function Dashboard() {
           </div>
           {validation && <p className="mt-3 text-sm text-red-800" role="alert">{validation}</p>}
         </form>
+        {result.status === 'idle' && <p className="panel notice" role="status">选择导入记录，或输入数据集编号查询指标。</p>}
         {result.status === 'loading' && <p className="panel notice" role="status">正在读取指标…</p>}
         {result.status === 'error' && <p className="panel notice text-red-800" role="alert">{result.message}</p>}
         {result.status === 'ready' && <Results series={result.series} />}
@@ -168,4 +207,23 @@ function Dashboard() {
   )
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode><Dashboard /></StrictMode>)
+function App() {
+  const [account, setAccount] = useState<Account | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const controller = new AbortController()
+    currentAccount(controller.signal).then(
+      (user) => { if (!controller.signal.aborted) setAccount(user) },
+      (failure: unknown) => { if (!controller.signal.aborted) setError(errorMessage(failure)) },
+    ).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [])
+
+  if (loading) return <main className="mx-auto max-w-md px-5 py-16" role="status">正在检查登录状态…</main>
+  if (!account) return <AccountForm initialError={error} onLogin={setAccount} />
+  return <Dashboard account={account} onLogout={() => { setError(''); setAccount(null) }} />
+}
+
+createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)

@@ -3,9 +3,10 @@ import os
 import re
 from decimal import Decimal
 from functools import lru_cache
+from io import StringIO
 
 from sqlalchemy import (
-    Column, ForeignKey, Integer, MetaData, Numeric, String, Table, create_engine, select,
+    Column, DateTime, ForeignKey, Integer, MetaData, Numeric, String, Table, create_engine, or_, select, text,
 )
 from sqlalchemy.dialects.postgresql import insert
 
@@ -14,6 +15,13 @@ users = Table(
     "users", metadata,
     Column("id", Integer, primary_key=True),
     Column("email", String(254), nullable=False, unique=True),
+    Column("password_hash", String(255)),
+)
+sessions = Table(
+    "sessions", metadata,
+    Column("token_hash", String(64), primary_key=True),
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
 )
 datasets = Table(
     "datasets", metadata,
@@ -40,6 +48,7 @@ INDICATORS = {
     "cpi": ("居民消费价格指数", "指数点"),
 }
 QUARTER_PATTERN = r"^[0-9]{4}-Q[1-4]$"
+MAX_CSV_BYTES = 2 * 1024 * 1024
 NUMBER_PATTERN = r"[+-]?[0-9]{1,12}(?:\.[0-9]{1,6})?"
 
 
@@ -55,8 +64,10 @@ def database_url():
 
 
 def init_database(engine):
-    metadata.create_all(engine)
     with engine.begin() as connection:
+        connection.execute(text("SELECT pg_advisory_xact_lock(44017301)"))
+        metadata.create_all(connection)
+        connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)"))
         for code, (name, unit) in INDICATORS.items():
             statement = insert(indicators).values(
                 code=code, name=name, unit=unit, frequency="quarterly",
@@ -104,14 +115,28 @@ def read_csv(stream):
     return rows
 
 
-def import_csv(engine, stream, source):
+def decode_csv(content):
+    if len(content) > MAX_CSV_BYTES:
+        raise ValueError("CSV exceeds the 2 MiB limit")
+    try:
+        return StringIO(content.decode("utf-8-sig"), newline="")
+    except UnicodeDecodeError as error:
+        raise ValueError("CSV must be UTF-8") from error
+
+
+def dataset_access(viewer_id):
+    shared = datasets.c.uploaded_by.is_(None)
+    return shared if viewer_id is None else or_(shared, datasets.c.uploaded_by == viewer_id)
+
+
+def import_csv(engine, stream, source, *, uploaded_by=None):
     source = source.strip()
     if not 1 <= len(source) <= 200:
         raise ValueError("source must be 1 to 200 characters")
     rows = read_csv(stream)
     with engine.begin() as connection:
         dataset_id = connection.execute(
-            datasets.insert().values(source=source).returning(datasets.c.id)
+            datasets.insert().values(source=source, uploaded_by=uploaded_by).returning(datasets.c.id)
         ).scalar_one()
         connection.execute(observations.insert(), [
             {"dataset_id": dataset_id, "code": code, "quarter": quarter, "value": value}
@@ -126,12 +151,12 @@ def growth_percent(current, base):
     return ((current / base - 1) * 100).quantize(Decimal("0.01"))
 
 
-def query_series(engine, dataset_id, code, start, end):
+def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
     with engine.connect() as connection:
         info = connection.execute(
             select(datasets.c.source, indicators.c.unit, indicators.c.frequency)
             .select_from(datasets.join(indicators, indicators.c.code == code))
-            .where(datasets.c.id == dataset_id)
+            .where(datasets.c.id == dataset_id, dataset_access(viewer_id))
         ).mappings().one_or_none()
         if info is None:
             return None
