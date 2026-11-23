@@ -1,0 +1,162 @@
+import csv
+import os
+import re
+from decimal import Decimal
+from functools import lru_cache
+
+from sqlalchemy import (
+    Column, ForeignKey, Integer, MetaData, Numeric, String, Table, create_engine, select,
+)
+from sqlalchemy.dialects.postgresql import insert
+
+metadata = MetaData()
+users = Table(
+    "users", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("email", String(254), nullable=False, unique=True),
+)
+datasets = Table(
+    "datasets", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("source", String(200), nullable=False),
+    Column("uploaded_by", ForeignKey("users.id")),
+)
+indicators = Table(
+    "indicators", metadata,
+    Column("code", String(16), primary_key=True),
+    Column("name", String(100), nullable=False),
+    Column("unit", String(32), nullable=False),
+    Column("frequency", String(16), nullable=False),
+)
+observations = Table(
+    "observations", metadata,
+    Column("dataset_id", ForeignKey("datasets.id"), primary_key=True),
+    Column("code", ForeignKey("indicators.code"), primary_key=True),
+    Column("quarter", Integer, primary_key=True),
+    Column("value", Numeric(18, 6), nullable=False),
+)
+INDICATORS = {
+    "gdp": ("国内生产总值", "亿元"),
+    "cpi": ("居民消费价格指数", "指数点"),
+}
+QUARTER_PATTERN = r"^[0-9]{4}-Q[1-4]$"
+NUMBER_PATTERN = r"[+-]?[0-9]{1,12}(?:\.[0-9]{1,6})?"
+
+
+@lru_cache(maxsize=1)
+def engine_for(url):
+    if not url.startswith("postgresql+psycopg://"):
+        raise ValueError("ECONOMIND_DATABASE_URL must use postgresql+psycopg://")
+    return create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 5})
+
+
+def database_url():
+    return os.getenv("ECONOMIND_DATABASE_URL")
+
+
+def init_database(engine):
+    metadata.create_all(engine)
+    with engine.begin() as connection:
+        for code, (name, unit) in INDICATORS.items():
+            statement = insert(indicators).values(
+                code=code, name=name, unit=unit, frequency="quarterly",
+            )
+            connection.execute(statement.on_conflict_do_nothing(index_elements=["code"]))
+
+
+def quarter_number(period):
+    if not re.fullmatch(QUARTER_PATTERN, period) or period[:4] == "0000":
+        raise ValueError("expected a quarter like 2025-Q1 with year 0001 to 9999")
+    return int(period[:4]) * 4 + int(period[-1]) - 1
+
+
+def quarter_label(quarter):
+    year, offset = divmod(quarter, 4)
+    return f"{year:04d}-Q{offset + 1}"
+
+
+def read_csv(stream):
+    reader = csv.reader(stream, strict=True)
+    rows = {}
+    try:
+        if next(reader, []) != ["code", "period", "value"]:
+            raise ValueError("line 1: expected header code,period,value")
+        for fields in reader:
+            try:
+                if len(fields) != 3:
+                    raise ValueError("expected three columns")
+                code, period, value = (field.strip() for field in fields)
+                if code not in INDICATORS:
+                    raise ValueError("unknown indicator code")
+                quarter = quarter_number(period)
+                if not re.fullmatch(NUMBER_PATTERN, value):
+                    raise ValueError("expected up to 12 integer and 6 decimal digits")
+                key = (code, quarter)
+                if key in rows:
+                    raise ValueError("duplicate indicator and quarter")
+                rows[key] = Decimal(value)
+            except ValueError as error:
+                raise ValueError(f"line {reader.line_num}: {error}") from error
+    except csv.Error as error:
+        raise ValueError(f"line {reader.line_num}: invalid CSV: {error}") from error
+    if not rows:
+        raise ValueError("CSV has no observations")
+    return rows
+
+
+def import_csv(engine, stream, source):
+    source = source.strip()
+    if not 1 <= len(source) <= 200:
+        raise ValueError("source must be 1 to 200 characters")
+    rows = read_csv(stream)
+    with engine.begin() as connection:
+        dataset_id = connection.execute(
+            datasets.insert().values(source=source).returning(datasets.c.id)
+        ).scalar_one()
+        connection.execute(observations.insert(), [
+            {"dataset_id": dataset_id, "code": code, "quarter": quarter, "value": value}
+            for (code, quarter), value in rows.items()
+        ])
+    return dataset_id
+
+
+def growth_percent(current, base):
+    if base is None or base == 0:
+        return None
+    return ((current / base - 1) * 100).quantize(Decimal("0.01"))
+
+
+def query_series(engine, dataset_id, code, start, end):
+    with engine.connect() as connection:
+        info = connection.execute(
+            select(datasets.c.source, indicators.c.unit, indicators.c.frequency)
+            .select_from(datasets.join(indicators, indicators.c.code == code))
+            .where(datasets.c.id == dataset_id)
+        ).mappings().one_or_none()
+        if info is None:
+            return None
+        rows = connection.execute(
+            select(observations.c.quarter, observations.c.value)
+            .where(
+                observations.c.dataset_id == dataset_id,
+                observations.c.code == code,
+                observations.c.quarter.between(start - 4, end),
+            )
+            .order_by(observations.c.quarter)
+        ).all()
+        values = {quarter: value for quarter, value in rows}
+    return {
+        **info,
+        "dataset_id": dataset_id,
+        "code": code,
+        "points": [
+            {
+                "period": quarter_label(quarter),
+                "value": value,
+                "yoy_percent": growth_percent(value, values.get(quarter - 4)),
+                "qoq_percent": growth_percent(value, values.get(quarter - 1)),
+            }
+            for quarter, value in values.items()
+            if quarter >= start
+        ],
+    }
