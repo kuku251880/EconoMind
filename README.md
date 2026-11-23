@@ -82,3 +82,17 @@ Vite 将 `/api` 请求转发给本地 FastAPI。若后端改用其他端口，�
 打开前端后，先注册并登录。在「导入记录」填写来源，通过网页上传 `data/sample-quarterly.csv`。导入成功后页面会打开对应图表。以后可从导入记录点击「查看指标」。网页导入默认仅上传账号可见，命令行导入适用于可公开查询的共享数据。若复制了 PostgreSQL 命令行样例，建议用合成数据验证。
 
 本地使用 HTTP，部署到 HTTPS 时为后端配置 `ECONOMIND_SECURE_COOKIES=1`。运行普通测试用 `.\.venv\Scripts\python.exe -m pytest -q backend/tests`。要运行 PostgreSQL 集成测试，请把 `ECONOMIND_TEST_DATABASE_URL` 指向允许创建和清理临时 schema 的测试数据库。
+
+## 试用 AI 研究助手
+
+在启动 FastAPI 的 PowerShell 窗口安装依赖并设置 DeepSeek API Key。输入不会显示在终端，也无需把密钥写入文件。保留原有的 PostgreSQL 连接变量。
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+$env:DEEPSEEK_API_KEY = Read-Host 'DeepSeek API Key' -MaskInput
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app
+```
+
+默认模型为 `deepseek-flash`。可用 `ECONOMIND_DEEPSEEK_MODEL` 指定支持 Responses 函数调用和结构化输出的模型。启动前端，登录后选择数据集和季度范围。在趋势图下方的「AI 研究助手」选择「数据问答」或「研究报告初稿」。可同时选择 GDP 和 CPI，每次最多覆盖 40 个季度。用示例数据询问「最新 GDP 同比和环比是多少？」可以对照表格与引用链接复核。
+
+生成时，后端将问题和选定指标的观测值发送给 DeepSeek。数据来源标签和账号信息由本平台保留。缺少观测值时直接反馈，缺少密钥时显示配置提示。普通指标仪表盘仍可使用。

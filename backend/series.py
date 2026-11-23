@@ -151,6 +151,12 @@ def growth_percent(current, base):
     return ((current / base - 1) * 100).quantize(Decimal("0.01"))
 
 
+def growth_unavailable_reason(base):
+    if base is None:
+        return "missing_base"
+    return "zero_base" if base == 0 else None
+
+
 def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
     with engine.connect() as connection:
         info = connection.execute(
@@ -180,6 +186,8 @@ def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
                 "value": value,
                 "yoy_percent": growth_percent(value, values.get(quarter - 4)),
                 "qoq_percent": growth_percent(value, values.get(quarter - 1)),
+                "yoy_unavailable_reason": growth_unavailable_reason(values.get(quarter - 4)),
+                "qoq_unavailable_reason": growth_unavailable_reason(values.get(quarter - 1)),
             }
             for quarter, value in values.items()
             if quarter >= start

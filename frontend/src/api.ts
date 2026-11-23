@@ -76,6 +76,12 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
       413: 'CSV 文件不能超过 2 MiB。',
       422: typeof body?.detail === 'string' ? body.detail : '请检查输入格式。',
     }
+    if (path.endsWith('/research')) {
+      messages[404] = '找不到该数据集。'
+      if ((response.status === 502 || response.status === 503) && typeof body?.detail === 'string') {
+        messages[response.status] = body.detail
+      }
+    }
     throw new ApiError(response.status, messages[response.status] ?? '服务暂不可用，请稍后重试。')
   }
   return response.status === 204 ? undefined as T : response.json()
@@ -116,4 +122,45 @@ export function uploadDataset(form: FormData) {
 
 export function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.message : '无法连接服务，请检查后端是否已启动。'
+}
+
+export interface ResearchSection {
+  heading: string
+  body: string
+  source_ids: string[]
+}
+
+export interface ResearchSource {
+  id: string
+  dataset_id: number
+  source: string
+  code: IndicatorCode
+  unit: string
+  first_period: string
+  last_period: string
+}
+
+export interface ResearchResult {
+  status: 'answered' | 'insufficient'
+  sections: ResearchSection[]
+  sources: ResearchSource[]
+  message: string | null
+}
+
+export function fetchResearch(
+  filters: Filters,
+  mode: 'question' | 'report',
+  question: string,
+  compare: boolean,
+  signal: AbortSignal,
+) {
+  return apiRequest<ResearchResult>(`/datasets/${encodeURIComponent(filters.datasetId)}/research`, {
+    method: 'POST',
+    headers: { ...mutationHeaders, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      mode, question, codes: compare ? ['gdp', 'cpi'] : [filters.code],
+      start: filters.start, end: filters.end,
+    }),
+    signal,
+  })
 }

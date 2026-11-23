@@ -5,6 +5,7 @@ import { currentAccount, errorMessage, fetchSeries, indicators, logout } from '.
 import type { Account, DatasetRecord, Filters, IndicatorCode, IndicatorSeries } from './api'
 import { AccountForm } from './AccountForm'
 import { DatasetWorkspace } from './DatasetWorkspace'
+import { ResearchPanel } from './ResearchPanel'
 import './styles.css'
 
 const SeriesChart = lazy(() => import('./SeriesChart'))
@@ -202,6 +203,9 @@ function Dashboard({ account, onLogout }: { account: Account; onLogout: () => vo
         {result.status === 'loading' && <p className="panel notice" role="status">正在读取指标…</p>}
         {result.status === 'error' && <p className="panel notice text-red-800" role="alert">{result.message}</p>}
         {result.status === 'ready' && <Results series={result.series} />}
+        {result.status === 'ready' && filters && (
+          <ResearchPanel key={JSON.stringify(filters)} filters={filters} />
+        )}
       </main>
     </>
   )
