@@ -10,7 +10,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from backend.main import app
-from backend.series import datasets, engine_for, import_csv, init_database, users
+from backend.series import datasets, engine_for, import_csv, init_database, quarter_number, query_series, users
 
 PASSWORD = "example-passphrase-123"
 HEADERS = {"X-EconoMind-Request": "1"}
@@ -142,3 +142,22 @@ def test_account_and_private_import_workflow(database):
         passwords = connection.execute(select(users.c.password_hash)).scalars().all()
         assert len(passwords) == 2 and all(value.startswith("$argon2id$") for value in passwords)
         assert len(connection.execute(select(datasets.c.id)).all()) == 2
+
+def test_retail_growth_respects_measure_and_year_boundary(database):
+    csv = "code,period,value\n" + "".join(
+        f"{code},{period},{value}\n"
+        for code in ("online_ytd", "online_qtr", "online_share_ytd", "online_share_qtr")
+        for period, value in (("2024-Q1", 20), ("2024-Q4", 80), ("2025-Q1", 24))
+    )
+    dataset = import_csv(database, StringIO(csv), "Retail test")
+    quarter = quarter_number("2025-Q1")
+
+    def point(code):
+        return query_series(database, dataset, code, quarter, quarter)["points"][0]
+
+    assert point("online_ytd")["qoq_percent"] is None
+    assert point("online_ytd")["yoy_percent"] == 20
+    assert point("online_qtr")["qoq_percent"] == -70
+    for code in ("online_share_ytd", "online_share_qtr"):
+        assert point(code)["qoq_percent"] is None
+        assert point(code)["yoy_percent"] is None

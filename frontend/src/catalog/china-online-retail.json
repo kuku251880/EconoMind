@@ -1,0 +1,14 @@
+[
+  {"period": "2023-Q1", "date": "2023-04-18", "url": "https://www.stats.gov.cn/sj/zxfb/202304/t20230418_1938710.html", "online_ytd": 27835, "retail_ytd": 114922, "online_share_ytd": "24.2"},
+  {"period": "2023-Q2", "date": "2023-07-17", "url": "https://www.stats.gov.cn/sj/zxfb/202307/t20230715_1941269.html", "online_ytd": 60623, "retail_ytd": 227588, "online_share_ytd": "26.6"},
+  {"period": "2023-Q3", "date": "2023-10-18", "url": "https://www.stats.gov.cn/xxgk/sjfb/zxfb2020/202310/t20231018_1943670.html", "online_ytd": 90435, "retail_ytd": 342107, "online_share_ytd": "26.4"},
+  {"period": "2023-Q4", "date": "2024-01-17", "url": "https://www.stats.gov.cn/sj/zxfb/202401/t20240116_1946619.html", "online_ytd": 130174, "retail_ytd": 471495, "online_share_ytd": "27.6"},
+  {"period": "2024-Q1", "date": "2024-04-16", "url": "https://www.stats.gov.cn/sj/zxfb/202404/t20240416_1948573.html", "online_ytd": 28053, "retail_ytd": 120327, "online_share_ytd": "23.3"},
+  {"period": "2024-Q2", "date": "2024-07-15", "url": "https://www.stats.gov.cn/sj/zxfb/202407/t20240715_1955609.html", "online_ytd": 59596, "retail_ytd": 235969, "online_share_ytd": "25.3"},
+  {"period": "2024-Q3", "date": "2024-10-18", "url": "https://www.stats.gov.cn/sj/zxfb/202410/t20241018_1957039.html", "online_ytd": 90721, "retail_ytd": 353564, "online_share_ytd": "25.7"},
+  {"period": "2024-Q4", "date": "2025-01-17", "url": "https://www.stats.gov.cn/sj/zxfb/202501/t20250117_1958327.html", "online_ytd": 130816, "retail_ytd": 487895, "online_share_ytd": "26.8"},
+  {"period": "2025-Q1", "date": "2025-04-16", "url": "https://www.stats.gov.cn/sj/zxfb/202504/t20250416_1959317.html", "online_ytd": 29948, "retail_ytd": 124671, "online_share_ytd": "24.0"},
+  {"period": "2025-Q2", "date": "2025-07-15", "url": "https://www.stats.gov.cn/sj/zxfb/202507/t20250715_1960409.html", "online_ytd": 61191, "retail_ytd": 245458, "online_share_ytd": "24.9"},
+  {"period": "2025-Q3", "date": "2025-10-20", "url": "https://www.stats.gov.cn/sj/zxfb/202510/t20251020_1961606.html", "online_ytd": 91528, "retail_ytd": 365877, "online_share_ytd": "25.0"},
+  {"period": "2025-Q4", "date": "2026-01-19", "url": "https://www.stats.gov.cn/sj/zxfb/202601/t20260119_1962323.html", "online_ytd": 130923, "retail_ytd": 501202, "online_share_ytd": "26.1"}
+]

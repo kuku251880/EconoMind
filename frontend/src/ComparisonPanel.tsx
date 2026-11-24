@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { errorMessage, fetchSeries } from './api'
 import type { Filters, IndicatorCode, IndicatorSeries } from './api'
 import { indicatorLabels, useLanguage } from './i18n'
+import { retailBasis } from './retail'
 import type { UiText } from './i18n'
 
 const SeriesChart = lazy(() => import('./SeriesChart'))
@@ -12,14 +13,14 @@ export function ComparisonPanel({ filters, primary, codes }: {
   codes: IndicatorCode[]
 }) {
   const { t } = useLanguage()
-  const others = codes.filter(code => code !== primary.code && code !== 'cpi')
+  const others = codes.filter(code => code !== primary.code && code !== 'cpi' && !retailBasis(code))
   const [peer, setPeer] = useState<IndicatorCode>(others[0])
   const [mode, setMode] = useState<'amount' | 'share'>('amount')
   const [loaded, setLoaded] = useState<IndicatorSeries[] | null>(null)
   const [error, setError] = useState<UiText | null>(null)
   useEffect(() => {
     const controller = new AbortController()
-    const needed = codes.filter(code => code !== primary.code && code !== 'cpi')
+    const needed = codes.filter(code => code !== primary.code && code !== 'cpi' && !retailBasis(code))
     Promise.all(needed.map(code => fetchSeries({ ...filters, code }, controller.signal)))
       .then(data => { if (!controller.signal.aborted) setLoaded(data) })
       .catch(reason => { if (!controller.signal.aborted) setError(errorMessage(reason)) })

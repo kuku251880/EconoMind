@@ -6,7 +6,9 @@ import type { Account, DatasetRecord, Filters, IndicatorCode, IndicatorSeries } 
 import { AccountForm } from './AccountForm'
 import { DataCenter } from './DataCenter'
 import { ComparisonPanel } from './ComparisonPanel'
-import { catalog, hasOfficialSource, releases } from './catalog'
+import { RetailAnalysis } from './RetailAnalysis'
+import { retailBasis } from './retail'
+import { catalog, accountsReleases } from './catalog'
 import { DatasetWorkspace } from './DatasetWorkspace'
 import { ForecastPanel } from './ForecastPanel'
 import { ResearchPanel } from './ResearchPanel'
@@ -36,7 +38,8 @@ function Results({ series }: { series: IndicatorSeries }) {
   const { t } = useLanguage()
   const name = t(...indicatorLabels[series.code])
   const unit = displayUnit(series.unit, t)
-  const nominal = hasOfficialSource(series.source)
+  const releases = accountsReleases(series.source)
+  const nominal = !!releases
   const yoy = nominal ? t("名义同比", "Nominal year over year") : t("同比", "Year over year")
   const qoq = nominal ? t("名义环比（未季调）", "Nominal quarter over quarter (unadjusted)") : t("环比", "Quarter over quarter")
   const trendTitle = t(`${name}趋势`, `${name} trend`)
@@ -269,10 +272,12 @@ function Dashboard({ account, onLogout }: { account: Account; onLogout: () => vo
           </section>}
           {result.status === 'loading' && <p className="panel notice" role="status">{t("正在读取指标…", "Loading indicators…")}</p>}
           {result.status === 'error' && <p className="panel notice text-red-800" role="alert">{t(...result.message)}</p>}
-          {result.status === 'ready' && filters && selection && filters.code !== 'cpi' && selection.codes.some(c => c !== filters.code && c !== 'cpi') &&
+          {result.status === 'ready' && filters && selection && !retailBasis(filters.code) && filters.code !== 'cpi' && selection.codes.some(c => c !== filters.code && c !== 'cpi' && !retailBasis(c)) &&
             <ComparisonPanel key={'comparison-' + JSON.stringify(filters)} filters={filters} primary={result.series} codes={selection.codes} />}
-          {result.status === 'ready' && <Results series={result.series} />}
-          {result.status === 'ready' && filters && (
+          {result.status === 'ready' && filters && (retailBasis(filters.code)
+            ? <RetailAnalysis key={'retail-' + JSON.stringify(filters)} filters={filters} primary={result.series} />
+            : <Results series={result.series} />)}
+          {result.status === 'ready' && filters && retailBasis(filters.code) !== 'ytd' && !filters.code.startsWith('online_share_') && (
             <ForecastPanel key={'forecast-' + JSON.stringify(filters)} filters={filters} />
           )}
           {result.status === 'ready' && filters && (

@@ -3,13 +3,13 @@ import json
 from pathlib import Path
 
 from backend.forecast import compare_forecasts, evaluate_baseline
-from backend.series import INDICATORS, MAX_CSV_BYTES, decode_csv, read_csv
+from backend.series import INDICATORS, YTD_CODES, SHARE_CODES, MAX_CSV_BYTES, decode_csv, read_csv
 
 
 def main():
     parser = argparse.ArgumentParser(description="Backtest a previous-quarter baseline on a CSV")
     parser.add_argument("file", type=Path)
-    parser.add_argument("--indicator", required=True, choices=tuple(INDICATORS))
+    parser.add_argument("--indicator", required=True, choices=sorted(INDICATORS.keys() - YTD_CODES - SHARE_CODES))
     parser.add_argument("--compare", action="store_true", help="Compare both models on common quarters")
     args = parser.parse_args()
 

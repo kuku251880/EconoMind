@@ -51,9 +51,24 @@ class IndicatorCode(StrEnum):
     SECONDARY = "secondary"
     TERTIARY = "tertiary"
     INFO_SERVICES = "info_services"
+    ONLINE_YTD = "online_ytd"
+    RETAIL_YTD = "retail_ytd"
+    ONLINE_SHARE_YTD = "online_share_ytd"
+    ONLINE_QTR = "online_qtr"
+    RETAIL_QTR = "retail_qtr"
+    ONLINE_SHARE_QTR = "online_share_qtr"
 
+
+YTD_CODES = {"online_ytd", "retail_ytd", "online_share_ytd"}
+SHARE_CODES = {"online_share_ytd", "online_share_qtr"}
 
 INDICATORS = {
+    "online_ytd": ("实物商品网上零售额（累计）", "亿元"),
+    "retail_ytd": ("社会消费品零售总额（累计）", "亿元"),
+    "online_share_ytd": ("实物网零占社零比重（累计）", "%"),
+    "online_qtr": ("实物商品网上零售额（当季）", "亿元"),
+    "retail_qtr": ("社会消费品零售总额（当季）", "亿元"),
+    "online_share_qtr": ("实物网零占社零比重（当季）", "%"),
     "primary": ("第一产业增加值", "亿元"),
     "secondary": ("第二产业增加值", "亿元"),
     "tertiary": ("第三产业增加值", "亿元"),
@@ -190,6 +205,8 @@ def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
             .order_by(observations.c.quarter)
         ).all()
         values = {quarter: value for quarter, value in rows}
+    yoy_applicable = code not in SHARE_CODES
+    qoq_applicable = yoy_applicable and code not in YTD_CODES
     return {
         **info,
         "dataset_id": dataset_id,
@@ -198,10 +215,10 @@ def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
             {
                 "period": quarter_label(quarter),
                 "value": value,
-                "yoy_percent": growth_percent(value, values.get(quarter - 4)),
-                "qoq_percent": growth_percent(value, values.get(quarter - 1)),
-                "yoy_unavailable_reason": growth_unavailable_reason(values.get(quarter - 4)),
-                "qoq_unavailable_reason": growth_unavailable_reason(values.get(quarter - 1)),
+                "yoy_percent": growth_percent(value, values.get(quarter - 4)) if yoy_applicable else None,
+                "qoq_percent": growth_percent(value, values.get(quarter - 1)) if qoq_applicable else None,
+                "yoy_unavailable_reason": growth_unavailable_reason(values.get(quarter - 4)) if yoy_applicable else "not_applicable",
+                "qoq_unavailable_reason": growth_unavailable_reason(values.get(quarter - 1)) if qoq_applicable else "not_applicable",
             }
             for quarter, value in values.items()
             if quarter >= start

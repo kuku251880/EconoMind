@@ -1,9 +1,11 @@
 import { lazy, Suspense, useState } from 'react'
 import { errorMessage, uploadDataset } from './api'
 import type { Filters, IndicatorCode } from './api'
-import { catalog, categories, matches, releases } from './catalog'
+import { catalog, categories, matches } from './catalog'
 import type { CatalogEntry, Category } from './catalog'
 import { displayUnit, indicatorLabels, useLanguage } from './i18n'
+import { RetailTable } from './RetailAnalysis'
+import { retailBasis } from './retail'
 import type { UiText } from './i18n'
 
 const SeriesChart = lazy(() => import('./SeriesChart'))
@@ -26,7 +28,7 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
   const csv = ['code,period,value', ...rows.map(r => [r.code, r.period, r.value].join(',')), ''].join('\r\n')
   const filename = `${entry.id}_${start}_${end}.csv`
   const points = rows.filter(row => row.code === code)
-  const unit = (indicator: IndicatorCode) => displayUnit(indicator === 'cpi' ? '指数点' : '亿元', t)
+  const unit = (indicator: IndicatorCode) => displayUnit(indicator === 'cpi' ? '指数点' : indicator.startsWith('online_share_') ? '%' : '亿元', t)
 
   async function importSelection() {
     setBusy(true)
@@ -48,12 +50,12 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
     <p className="text-sm font-medium text-[#37694f]">{t(...entry.kind)} · {t(...entry.publisher)}</p>
     <h2 id="preview-title" className="mt-2 text-2xl font-semibold">{t(...entry.title)}</h2>
     <p className="mt-3 text-sm leading-relaxed text-stone-700">{t(...entry.method)}</p>
-    {entry.category === 'digital' && <p className="mt-2 text-sm text-stone-600">{t(
+    {entry.id === 'china-info-services' && <p className="mt-2 text-sm text-stone-600">{t(
       '信息传输、软件和信息技术服务业属于第三产业，第三产业金额已包含该行业。',
       'The tertiary industry total already includes information transmission, software and IT services.')}</p>}
-    {entry.category !== 'teaching' && <details className="mt-3 text-sm">
+    {entry.releases && <details className="mt-3 text-sm">
       <summary className="cursor-pointer font-semibold">{t('逐季来源与发布日期', 'Quarterly sources and release dates')}</summary>
-      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">{releases.filter(r => r.period >= start && r.period <= end).map(({period, date, url}) =>
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">{entry.releases.filter(r => r.period >= start && r.period <= end).map(({period, date, url}) =>
         <li key={period}><a className="underline" href={url} target="_blank" rel="noreferrer">{period} · {date}</a></li>)}</ul>
     </details>}
     <fieldset disabled={busy} className="mt-5 grid gap-3 border-t border-stone-200 pt-4 sm:grid-cols-3">
@@ -73,16 +75,17 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
       <a className="secondary-button rounded-lg px-4 py-3 text-sm font-semibold" download={filename}
         href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)}>{t('下载 CSV', 'Download CSV')}</a>
     </div>
+    {retailBasis(code) && <p className="mb-3 text-sm text-stone-600">{t('下载和导入包含所选季度的累计与当季两组数据。', 'Downloads and imports include both YTD and quarter-only data for the selected quarters.')}</p>}
     <h3 className="font-semibold">{t('数据预览', 'Data preview')} · {t(...indicatorLabels[code])} ({unit(code)})</h3>
     {error && <p role="alert" className="mt-2 text-red-800">{t(...error)}</p>}
     {points.length > 0 && <Suspense fallback={<p role="status">{t('正在加载趋势图…', 'Loading chart…')}</p>}>
       <SeriesChart points={points} unit={unit(code)} name={t(...indicatorLabels[code])} />
     </Suspense>}
-    <div className="overflow-x-auto"><table className="w-full text-left text-sm tabular-nums" aria-label={t('预览明细', 'Preview observations')}>
+    {retailBasis(code) ? <RetailTable code={code} rows={rows} official /> : <div className="overflow-x-auto"><table className="w-full text-left text-sm tabular-nums" aria-label={t('预览明细', 'Preview observations')}>
       <thead className="bg-[#eef3ee]"><tr>{[t('季度','Quarter'), t('指标','Indicator'), t('数值','Value'), t('单位','Unit')].map(label =>
         <th key={label} scope="col">{label}</th>)}</tr></thead>
       <tbody>{rows.map(r => <tr key={r.period + r.code}><th scope="row">{r.period}</th><td>{t(...indicatorLabels[r.code])}</td><td>{r.value}</td><td>{unit(r.code)}</td></tr>)}</tbody>
-    </table></div>
+    </table></div>}
   </section>
 }
 
