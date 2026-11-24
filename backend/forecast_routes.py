@@ -1,12 +1,12 @@
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
 
 from backend.accounts import Database, SignedIn
 from backend.forecast import compare_forecasts
-from backend.series import quarter_number, query_series
+from backend.series import IndicatorCode, quarter_number, query_series
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["forecasts"])
 
@@ -39,7 +39,7 @@ class ForecastComparison(BaseModel):
 @router.get("/{dataset_id}/indicators/{code}/forecast")
 def forecast_indicator(
     dataset_id: Annotated[int, Path(gt=0, le=2_147_483_647)],
-    code: Literal["gdp", "cpi"],
+    code: IndicatorCode,
     start: Annotated[str, Query(max_length=7)],
     end: Annotated[str, Query(max_length=7)],
     account: SignedIn,

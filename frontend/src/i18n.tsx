@@ -52,8 +52,12 @@ export function LanguageToggle() {
   )
 }
 
-export const indicatorLabels: Record<"gdp" | "cpi", UiText> = {
+export const indicatorLabels: Record<import('./api').IndicatorCode, UiText> = {
   gdp: ['国内生产总值', 'Gross domestic product'],
+  primary: ['第一产业增加值', 'Primary industry'],
+  secondary: ['第二产业增加值', 'Secondary industry'],
+  tertiary: ['第三产业增加值', 'Tertiary industry'],
+  info_services: ['信息传输、软件和信息技术服务业增加值', 'Information transmission, software and IT services'],
   cpi: ['居民消费价格指数', 'Consumer price index'],
 }
 

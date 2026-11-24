@@ -7,7 +7,7 @@ from openai import APIStatusError, OpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from backend.accounts import Database, SignedIn, require_browser_header
-from backend.series import quarter_number, query_series
+from backend.series import IndicatorCode, quarter_number, query_series
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["research"], max_body_size=8192)
 MAX_QUARTERS = 40
@@ -30,7 +30,7 @@ INSTRUCTIONS = """你是 EconoMind 的经济指标研究助手。只依据工具
 class ResearchRequest(BaseModel):
     mode: Literal["question", "report"]
     question: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] = ""
-    codes: Annotated[list[Literal["gdp", "cpi"]], Field(min_length=1, max_length=2)]
+    codes: Annotated[list[IndicatorCode], Field(min_length=1, max_length=2)]
     start: Annotated[str, StringConstraints(max_length=7)]
     end: Annotated[str, StringConstraints(max_length=7)]
 

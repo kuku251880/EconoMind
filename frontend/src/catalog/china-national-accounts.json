@@ -1,0 +1,14 @@
+[
+  {"period": "2023-Q1", "date": "2023-04-19", "url": "https://www.stats.gov.cn/sj/zxfb/202304/t20230419_1938791.html", "gdp": "284997", "primary": "11575", "secondary": "107947", "tertiary": "165475", "info_services": "13520"},
+  {"period": "2023-Q2", "date": "2023-07-18", "url": "https://www.stats.gov.cn/sj/zxfb/202307/t20230717_1941310.html", "gdp": "308038", "primary": "18841", "secondary": "122735", "tertiary": "166462", "info_services": "14253"},
+  {"period": "2023-Q3", "date": "2023-10-19", "url": "https://www.stats.gov.cn/sj/zxfb/202310/t20231019_1943720.html", "gdp": "319992", "primary": "25958", "secondary": "122978", "tertiary": "171056", "info_services": "12071"},
+  {"period": "2023-Q4", "date": "2024-01-18", "url": "https://www.stats.gov.cn/sj/zxfb/202401/t20240118_1946691.html", "gdp": "347890", "primary": "33425", "secondary": "133703", "tertiary": "180762", "info_services": "13940"},
+  {"period": "2024-Q1", "date": "2024-04-17", "url": "https://www.stats.gov.cn/sj/zxfb/202404/t20240429_1948771.html", "gdp": "296299", "primary": "11538", "secondary": "109846", "tertiary": "174915", "info_services": "15881"},
+  {"period": "2024-Q2", "date": "2024-07-16", "url": "https://www.stats.gov.cn/sj/zxfb/202407/t20240716_1955649.html", "gdp": "320537", "primary": "19122", "secondary": "126684", "tertiary": "174731", "info_services": "16121"},
+  {"period": "2024-Q3", "date": "2024-10-19", "url": "https://www.stats.gov.cn/sj/zxfb/202410/t20241019_1957083.html", "gdp": "332910", "primary": "27073", "secondary": "124832", "tertiary": "181005", "info_services": "13577"},
+  {"period": "2024-Q4", "date": "2025-01-18", "url": "https://www.stats.gov.cn/sj/zxfb/202501/t20250118_1958363.html", "gdp": "373726", "primary": "34050", "secondary": "135595", "tertiary": "204081", "info_services": "15708"},
+  {"period": "2025-Q1", "date": "2025-04-17", "url": "https://www.stats.gov.cn/sj/zxfb/202504/t20250417_1959334.html", "gdp": "318758", "primary": "11713", "secondary": "111903", "tertiary": "195142", "info_services": "18370"},
+  {"period": "2025-Q2", "date": "2025-07-16", "url": "https://www.stats.gov.cn/sj/zxfb/202507/t20250716_1960426.html", "gdp": "341778", "primary": "19459", "secondary": "127147", "tertiary": "195172", "info_services": "18750"},
+  {"period": "2025-Q3", "date": "2025-10-21", "url": "https://www.stats.gov.cn/sj/zxfb/202510/t20251021_1961646.html", "gdp": "354500", "primary": "26889", "secondary": "124970", "tertiary": "202641", "info_services": "15638"},
+  {"period": "2025-Q4", "date": "2026-01-20", "url": "https://www.stats.gov.cn/sj/zxfb/202601/t20260120_1962349.html", "gdp": "387911", "primary": "35160", "secondary": "136803", "tertiary": "215948", "info_services": "17391"}
+]

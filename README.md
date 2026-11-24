@@ -10,6 +10,13 @@ MVP 覆盖注册登录、CSV 导入、指标查询与增速计算、图表展示
 
 本地 MVP 已支持注册登录、CSV 导入和季度指标分析。参见[路线图](ROADMAP.md)和[架构设计](docs/ARCHITECTURE.md)。
 
+## Windows 本机使用
+
+在已配置 PowerShell 7.4+、Python、Node.js 和 PostgreSQL 的电脑上，从项目根目录双击 `EconoMind.exe`。启动器调用同目录的 `Start-EconoMind.ps1`，服务就绪后打开浏览器。结束时用 PowerShell 运行 `.\Stop-EconoMind.ps1`。
+
+登录后在「数据中心」选择分类或搜索“软件”，预览季度数据并点击「导入并分析」。在「分析工作台」选择对比指标或切换为「占 GDP 比重」，点击季度明细中的季度链接核对官方原表。内置官方专题覆盖 2023-Q1 至 2025-Q4，各季使用国家统计局初步核算表 1 的当季现价金额。
+
+
 ## 运行后端
 
 在项目根目录运行以下 PowerShell 命令。已有 `.venv` 时可跳过第一行。

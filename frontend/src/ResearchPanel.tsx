@@ -5,7 +5,7 @@ import type { Filters, ResearchResult } from './api'
 import { displayUnit, indicatorLabels, useLanguage } from './i18n'
 import type { UiText } from './i18n'
 
-export function ResearchPanel({ filters }: { filters: Filters }) {
+export function ResearchPanel({ filters, canCompare }: { filters: Filters; canCompare: boolean }) {
   const { t } = useLanguage()
   const [mode, setMode] = useState<'question' | 'report'>('question')
   const [question, setQuestion] = useState('')
@@ -55,11 +55,11 @@ export function ResearchPanel({ filters }: { filters: Filters }) {
               <option value="report">{t("研究报告初稿", "Research report draft")}</option>
             </select>
           </div>
-          <label className="flex items-center gap-2 py-3">
+          {canCompare && <label className="flex items-center gap-2 py-3">
             <input type="checkbox" checked={compare} onChange={(event) => { setCompare(event.target.checked); setResult(null) }}
               className="mt-0 h-4 w-4 accent-[#08715d]" />
             {t("同时纳入 GDP 和 CPI", "Include both GDP and CPI")}
-          </label>
+          </label>}
           <label className="sm:col-span-2">
             {mode === 'question' ? t("研究问题", "Research question") : t("报告重点（可选）", "Report focus (optional)")}
             <textarea

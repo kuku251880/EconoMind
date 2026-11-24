@@ -25,17 +25,19 @@ export default function SeriesChart({ points, unit, name, label, comparisons }: 
     const chart = init(container.current)
     const quarterIndex = (period: string) => Number(period.slice(0, 4)) * 4 + Number(period.at(-1)) - 1
     const samples = new Map(points.map((point) => [quarterIndex(point.period), Number(point.value)]))
-    const start = quarterIndex(points[0].period)
-    const end = quarterIndex(points.at(-1)!.period)
+    const ranges = [points, ...(comparisons ?? []).map(series => series.points)].filter(series => series.length)
+    if (!ranges.length) { chart.dispose(); return }
+    const start = Math.min(...ranges.map(series => quarterIndex(series[0].period)))
+    const end = Math.max(...ranges.map(series => quarterIndex(series.at(-1)!.period)))
     const timeline = Array.from({ length: end - start + 1 }, (_, offset) => start + offset)
     chart.setOption({
       animation: false,
       grid: { left: 20, right: 20, top: comparisons ? 45 : 18, bottom: 14, containLabel: true },
-      legend: comparisons ? { top: 5 } : undefined,
+      legend: comparisons ? { top: 5, type: 'scroll' } : undefined,
       tooltip: { trigger: 'axis', renderMode: 'richText' },
       xAxis: {
         type: 'category',
-        boundaryGap: points.length === 1,
+        boundaryGap: timeline.length === 1,
         data: timeline.map((quarter) => `${String(Math.floor(quarter / 4)).padStart(4, '0')}-Q${quarter % 4 + 1}`),
         axisLabel: { color: '#5f7069', hideOverlap: true },
         axisLine: { lineStyle: { color: '#cedbd3' } },

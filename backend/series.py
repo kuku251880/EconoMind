@@ -2,6 +2,7 @@ import csv
 import os
 import re
 from decimal import Decimal
+from enum import StrEnum
 from functools import lru_cache
 from io import StringIO
 
@@ -43,7 +44,20 @@ observations = Table(
     Column("quarter", Integer, primary_key=True),
     Column("value", Numeric(18, 6), nullable=False),
 )
+class IndicatorCode(StrEnum):
+    GDP = "gdp"
+    CPI = "cpi"
+    PRIMARY = "primary"
+    SECONDARY = "secondary"
+    TERTIARY = "tertiary"
+    INFO_SERVICES = "info_services"
+
+
 INDICATORS = {
+    "primary": ("第一产业增加值", "亿元"),
+    "secondary": ("第二产业增加值", "亿元"),
+    "tertiary": ("第三产业增加值", "亿元"),
+    "info_services": ("信息传输、软件和信息技术服务业增加值", "亿元"),
     "gdp": ("国内生产总值", "亿元"),
     "cpi": ("居民消费价格指数", "指数点"),
 }

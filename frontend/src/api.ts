@@ -1,6 +1,6 @@
 import type { UiText } from './i18n'
 
-export type IndicatorCode = 'gdp' | 'cpi'
+export type IndicatorCode = 'gdp' | 'cpi' | 'primary' | 'secondary' | 'tertiary' | 'info_services'
 
 export interface Filters {
   datasetId: string
@@ -57,7 +57,7 @@ class ApiError extends Error {
 const apiDetails: Record<string, UiText> = {
   'expected header code,period,value': ['表头应为 code,period,value。', 'Expected the header code,period,value.'],
   'expected three columns': ['每行应包含三列。', 'Each row must contain three columns.'],
-  'unknown indicator code': ['指标代码应为 gdp 或 cpi。', 'Use gdp or cpi for the indicator code.'],
+  'unknown indicator code': ['支持 gdp、cpi、primary、secondary、tertiary 和 info_services。', 'Use gdp, cpi, primary, secondary, tertiary or info_services.'],
   'expected a quarter like 2025-Q1 with year 0001 to 9999': ['季度格式应类似 2025-Q1，年份为 0001 至 9999。', 'Use a quarter such as 2025-Q1, with a year from 0001 to 9999.'],
   'expected up to 12 integer and 6 decimal digits': ['数值最多有 12 位整数和 6 位小数。', 'Use at most 12 integer digits and 6 decimal places.'],
   'duplicate indicator and quarter': ['该指标和季度重复。', 'This indicator and quarter appear more than once.'],
