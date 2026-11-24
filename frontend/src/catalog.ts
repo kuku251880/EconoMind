@@ -1,4 +1,4 @@
-import type { IndicatorCode } from './api'
+import type { CatalogRelease, IndicatorCode } from './api'
 import { indicatorLabels } from './i18n'
 import type { UiText } from './i18n'
 import releases from './catalog/china-national-accounts.json'
@@ -32,7 +32,7 @@ export interface CatalogEntry {
   publisher: UiText
   method: UiText
   source: string
-  releases?: { period: string; date: string; url: string }[]
+  releases?: CatalogRelease[]
   rows: ReturnType<typeof readSnapshot>
 }
 

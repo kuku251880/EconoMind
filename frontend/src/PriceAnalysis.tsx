@@ -24,7 +24,7 @@ export function PriceAnalysis({ filters, primary }: { filters: Filters; primary:
   const series = [primary, ...others]
   const values = new Map(series.map(s => [s.code, new Map(s.points.map(p => [p.period, p.value]))]))
   const periods = [...new Set(series.flatMap(s => s.points.map(p => p.period)))].sort()
-  const official = primary.source === priceSource
+  const official = !!primary.version_id || primary.source === priceSource
   const unit = primary.code.endsWith('_index') ? t('指数点', 'index points') : '%'
   const chartTitle = t(...indicatorLabels[primary.code])
 
@@ -41,12 +41,12 @@ export function PriceAnalysis({ filters, primary }: { filters: Filters; primary:
           <th scope="col" key={code}>{t(...indicatorLabels[code])}{code.endsWith('_index') ? '' : ' (%)'}</th>
         )}{official && <th scope="col">{t('来源', 'Source')}</th>}</tr></thead>
         <tbody>{periods.map(period => {
-          const release = priceEntry.releases?.find(row => row.period === period)
+          const release = (primary.version_id ? primary.releases : priceEntry.releases)?.find(row => row.period === period)
           return <tr key={period}><th scope="row">{period}</th>{priceCodes.map(code => {
             const value = values.get(code)?.get(period)
             return <td key={code}>{value === undefined ? '—' : Number(value).toFixed(1) + (code.endsWith('_index') ? '' : '%')}</td>
           })}{official && <td>{release && <a className="underline" href={release.url} target="_blank" rel="noreferrer">
-            {t('原表', 'Official table')} · {release.date} ↗</a>}</td>}</tr>
+            {t('原表', 'Official table')} · {release.date} ↗</a>}{release?.survey_base && <span className="ml-2">{t("编制基期", "Survey base")} {release.survey_base}</span>}</td>}</tr>
         })}</tbody>
       </table>
     </div>}

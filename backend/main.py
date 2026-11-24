@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import OperationalError
 
 from backend.accounts import find_account, require_database, router as accounts_router
+from backend.catalog_routes import release_info, router as catalog_router
 from backend.dataset_routes import router as datasets_router
 from backend.forecast_routes import router as forecast_router
 from backend.research import router as research_router
@@ -22,6 +23,7 @@ class Indicator(BaseModel):
 app = FastAPI(title="EconoMind API", max_body_size=2 * 1024 * 1024 + 65536)
 app.include_router(accounts_router)
 app.include_router(datasets_router)
+app.include_router(catalog_router)
 app.include_router(research_router)
 app.include_router(forecast_router)
 
@@ -64,6 +66,8 @@ class IndicatorSeries(BaseModel):
     unit: str
     frequency: str
     points: list[SeriesPoint]
+    version_id: int | None = None
+    releases: list[dict[str, str]] = []
 
 
 @app.get("/api/v1/datasets/{dataset_id}/indicators/{code}/series", response_model=IndicatorSeries)
@@ -87,4 +91,5 @@ def get_series(
     )
     if series is None:
         raise HTTPException(404, "Dataset not found")
+    series["releases"] = [release_info(row) for row in series.get("releases", [])]
     return series

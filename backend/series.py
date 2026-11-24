@@ -7,9 +7,9 @@ from functools import lru_cache
 from io import StringIO
 
 from sqlalchemy import (
-    Column, DateTime, ForeignKey, Integer, MetaData, Numeric, String, Table, create_engine, or_, select, text,
+    Column, DateTime, ForeignKey, Integer, MetaData, Numeric, String, Table, UniqueConstraint, create_engine, or_, select, text,
 )
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import JSONB, insert
 
 metadata = MetaData()
 users = Table(
@@ -29,6 +29,20 @@ datasets = Table(
     Column("id", Integer, primary_key=True),
     Column("source", String(200), nullable=False),
     Column("uploaded_by", ForeignKey("users.id")),
+)
+catalog_versions = Table(
+    "catalog_versions", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("topic", String(12), nullable=False),
+    Column("checksum", String(64), nullable=False),
+    Column("releases", JSONB, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=text("now()")),
+    UniqueConstraint("topic", "checksum"),
+)
+dataset_versions = Table(
+    "dataset_versions", metadata,
+    Column("dataset_id", ForeignKey("datasets.id"), primary_key=True),
+    Column("version_id", ForeignKey("catalog_versions.id"), nullable=False),
 )
 indicators = Table(
     "indicators", metadata,
@@ -191,7 +205,7 @@ def dataset_access(viewer_id):
     return shared if viewer_id is None else or_(shared, datasets.c.uploaded_by == viewer_id)
 
 
-def import_csv(engine, stream, source, *, uploaded_by=None):
+def import_csv(engine, stream, source, *, uploaded_by=None, version_id=None):
     source = source.strip()
     if not 1 <= len(source) <= 200:
         raise ValueError("source must be 1 to 200 characters")
@@ -200,6 +214,8 @@ def import_csv(engine, stream, source, *, uploaded_by=None):
         dataset_id = connection.execute(
             datasets.insert().values(source=source, uploaded_by=uploaded_by).returning(datasets.c.id)
         ).scalar_one()
+        if version_id is not None:
+            connection.execute(dataset_versions.insert().values(dataset_id=dataset_id, version_id=version_id))
         connection.execute(observations.insert(), [
             {"dataset_id": dataset_id, "code": code, "quarter": quarter, "value": value}
             for (code, quarter), value in rows.items()
@@ -237,11 +253,16 @@ def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
             )
             .order_by(observations.c.quarter)
         ).all()
+        version = connection.execute(select(catalog_versions.c.id, catalog_versions.c.releases)
+                                     .join(dataset_versions, dataset_versions.c.version_id == catalog_versions.c.id)
+                                     .where(dataset_versions.c.dataset_id == dataset_id)).mappings().first()
         values = {quarter: value for quarter, value in rows}
     yoy_applicable = code not in SHARE_CODES and code not in MONTHLY_CODES
     qoq_applicable = yoy_applicable and code not in YTD_CODES
     return {
         **info,
+        "version_id": version["id"] if version else None,
+        "releases": version["releases"] if version else [],
         "dataset_id": dataset_id,
         "code": code,
         "points": [

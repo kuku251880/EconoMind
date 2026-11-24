@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import type { Filters, IndicatorCode, IndicatorSeries } from './api'
+import type { CatalogRelease, Filters, IndicatorCode, IndicatorSeries } from './api'
 import { errorMessage, fetchSeries } from './api'
 import { displayUnit, indicatorLabels, useLanguage } from './i18n'
 import type { UiText } from './i18n'
@@ -8,7 +8,7 @@ import type { RetailRow } from './retail'
 
 const SeriesChart = lazy(() => import('./SeriesChart'))
 
-export function RetailTable({ rows, code, official }: { rows: RetailRow[]; code: IndicatorCode; official: boolean }) {
+export function RetailTable({ rows, code, official, releases = retailReleases }: { rows: RetailRow[]; code: IndicatorCode; official: boolean; releases?: CatalogRelease[] }) {
   const { t } = useLanguage()
   const basis = retailBasis(code)!
   const cumulative = basis === 'ytd'
@@ -31,17 +31,18 @@ export function RetailTable({ rows, code, official }: { rows: RetailRow[]; code:
         const values = grouped.get(period)!
         const endMonth = Number(period.at(-1)) * 3
         const startMonth = cumulative ? 1 : endMonth - 2
-        const releaseIndex = retailReleases.findIndex(r => r.period === period)
-        const release = retailReleases[releaseIndex]
-        const sources = release && !cumulative && startMonth > 1 ? [retailReleases[releaseIndex - 1], release] : [release]
+        const releaseIndex = releases.findIndex(r => r.period === period)
+        const release = releases[releaseIndex]
+        const sources = release && !cumulative && startMonth > 1 ? [releases[releaseIndex - 1], release] : [release]
         const value = (c: IndicatorCode) => {
           const raw = values.get(c)
           if (raw === undefined) return '—'
-          if (c === share) return Number(raw).toFixed(cumulative ? 1 : 2) + '%'
+          if (c === share) return Number(raw).toFixed(cumulative && release?.share_kind !== 'calculated' ? 1 : 2) + '%'
           return raw.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
         }
         return <tr key={period}><th scope="row">{period.slice(0, 4)} · {t(`${startMonth}–${endMonth}月`, `months ${startMonth}–${endMonth}`)}</th>
-          <td>{value(online)}</td><td>{value(total)}</td><td>{value(share)}</td>
+          <td>{value(online)}</td><td>{value(total)}</td><td>{value(share)}
+            {cumulative && release?.share_kind === 'calculated' && <span className="ml-2">{t('计算值', 'Calculated')}</span>}</td>
           {official && <td>{sources.filter(Boolean).map(s => <a key={s.period} className="ml-2 underline" href={s.url} target="_blank" rel="noreferrer"
             title={s.date}>{s.period} ↗</a>)}</td>}</tr>
       })}</tbody>
@@ -61,7 +62,7 @@ export function RetailAnalysis({ filters, primary }: { filters: Filters; primary
     }).catch(reason => { if (!controller.signal.aborted) setError(errorMessage(reason)) })
     return () => controller.abort()
   }, [filters])
-  const official = primary.source === retailSource
+  const official = !!primary.version_id || primary.source === retailSource
   const unit = displayUnit(primary.unit, t)
   return <section className="panel my-5 min-w-0 p-5" aria-labelledby="retail-title">
     <h2 className="text-lg font-semibold" id="retail-title">{t(...indicatorLabels[primary.code])} ({unit})</h2>
@@ -71,6 +72,6 @@ export function RetailAnalysis({ filters, primary }: { filters: Filters; primary
     </Suspense>}
     {error ? <p role="alert">{t(...error)}</p> : !companions ? <p role="status">{t('正在读取零售数据…', 'Loading retail data…')}</p> :
       [primary, ...companions].every(s => s.points.length === 0) ? <p role="status">{t('所选期间没有观测值。', 'No observations in this range.')}</p> :
-      <RetailTable rows={[primary, ...companions].flatMap(s => s.points.map(p => ({...p, code: s.code})))} code={primary.code} official={official} />}
+      <RetailTable rows={[primary, ...companions].flatMap(s => s.points.map(p => ({...p, code: s.code})))} code={primary.code} official={official} releases={primary.version_id ? primary.releases : undefined} />}
   </section>
 }

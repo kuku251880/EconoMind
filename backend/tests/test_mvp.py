@@ -174,3 +174,52 @@ def test_monthly_price_import_preserves_periods_and_published_rates(database):
     assert all(p["yoy_percent"] is None and p["qoq_percent"] is None for p in series["points"])
     with pytest.raises(ValueError, match="separate datasets"):
         import_csv(database, StringIO(csv + "gdp,2025-Q1,100\n"), "Mixed frequencies")
+
+
+def test_catalog_revision_keeps_imported_analysis_and_archived_table(database, monkeypatch):
+    from copy import deepcopy
+
+    from backend import catalog_routes
+
+    async def exercise():
+        async with client() as session:
+            identity = {"email": "catalog@example.com", "password": PASSWORD}
+            await session.post(f"{ACCOUNT_PATH}/register", headers=HEADERS, json=identity)
+            await session.post(f"{ACCOUNT_PATH}/login", headers=HEADERS, json=identity)
+            root = "/api/v1/catalog/china-gdp"
+            versions = (await session.get(root)).json()
+            old = versions[0]["id"]
+
+            async def import_q4(version_id):
+                response = await session.post(f"{root}/versions/{version_id}/import", headers=HEADERS,
+                                              json={"start": "2025-Q4", "end": "2025-Q4"})
+                assert response.status_code == 201
+                return response.json()["dataset_id"]
+
+            old_dataset = await import_q4(old)
+
+            def corrected(_topic, releases):
+                revised = deepcopy(releases)
+                revised[-1].update(gdp="387912", raw_table=[[["GDP", 1, 1], ["387912", 1, 1]]], parser=1)
+                return revised
+
+            monkeypatch.setattr(catalog_routes, "refresh", corrected)
+            check = await session.post(f"{root}/check", headers=HEADERS)
+            assert check.status_code == 200 and check.json()["changed"]
+            new = check.json()["id"]
+            repeat = await session.post(f"{root}/check", headers=HEADERS)
+            assert repeat.json() == {"id": new, "changed": False, "end": "2025-Q4"}
+            assert [row["id"] for row in (await session.get(root)).json()] == [new, old]
+            new_dataset = await import_q4(new)
+
+            for dataset_id, version, value in [(old_dataset, old, "387911"), (new_dataset, new, "387912")]:
+                series = (await session.get(
+                    f"{DATA_PATH}/{dataset_id}/indicators/gdp/series?start=2025-Q4&end=2025-Q4"
+                )).json()
+                assert series["version_id"] == version
+                assert series["points"][0]["value"] == value + ".000000"
+                archive = (await session.get(f"{root}/versions/{version}/sources/2025-Q4")).json()
+                assert archive["gdp"] == value
+                assert archive["url"] == series["releases"][-1]["url"]
+
+    asyncio.run(exercise())

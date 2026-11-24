@@ -1,6 +1,6 @@
-import { lazy, Suspense, useState } from 'react'
-import { errorMessage, uploadDataset } from './api'
-import type { Filters, IndicatorCode } from './api'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { checkCatalog, errorMessage, getCatalogVersion, importCatalogVersion, listCatalogVersions, uploadDataset } from './api'
+import type { CatalogSnapshot, CatalogVersion, Filters, IndicatorCode } from './api'
 import { catalog, categories, matches } from './catalog'
 import type { CatalogEntry, Category } from './catalog'
 import { displayUnit, indicatorLabels, useLanguage } from './i18n'
@@ -17,7 +17,7 @@ interface ImportProps {
   onImported: (filters: Filters, source: string, codes: IndicatorCode[]) => void
 }
 
-function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: CatalogEntry }) {
+function Preview({ entry, busy, setBusy, onImported, versionId }: ImportProps & { entry: CatalogEntry; versionId?: number }) {
   const { t } = useLanguage()
   const quarters = [...new Set(entry.rows.map(row => row.period))].sort()
   const codes = [...new Set(entry.rows.map(row => row.code))]
@@ -39,7 +39,9 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
       const form = new FormData()
       form.append('source', entry.source)
       form.append('file', new File([csv], filename, { type: 'text/csv;charset=utf-8' }))
-      const { dataset_id } = await uploadDataset(form)
+      const { dataset_id } = versionId
+        ? await importCatalogVersion(entry.id, versionId, start, end)
+        : await uploadDataset(form)
       onImported({ datasetId: String(dataset_id), code, start, end }, entry.source, codes)
     } catch (failure) {
       setError(errorMessage(failure))
@@ -58,7 +60,8 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
     {entry.releases && <details className="mt-3 text-sm">
       <summary className="cursor-pointer font-semibold">{monthly ? t('逐月原表与发布日期', 'Monthly sources and release dates') : t('逐季来源与发布日期', 'Quarterly sources and release dates')}</summary>
       <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">{entry.releases.filter(r => r.period >= start && r.period <= end).map(({period, date, url}) =>
-        <li key={period}><a className="underline" href={url} target="_blank" rel="noreferrer">{period} · {date}</a></li>)}</ul>
+        <li key={period}><a className="underline" href={url} target="_blank" rel="noreferrer">{period} · {date}</a>{versionId && <a className="ml-2 underline" target="_blank" rel="noreferrer"
+          href={`/api/v1/catalog/${entry.id}/versions/${versionId}/sources/${period}`}>{t('留档', 'Archive')}</a>}</li>)}</ul>
     </details>}
     <fieldset disabled={busy} className="mt-5 grid gap-3 border-t border-stone-200 pt-4 sm:grid-cols-3">
       <label>{monthly ? t('起始月份', 'Start month') : t('起始季度', 'Start quarter')}<select value={start} onChange={e => {
@@ -83,12 +86,78 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
     {points.length > 0 && <Suspense fallback={<p role="status">{t('正在加载趋势图…', 'Loading chart…')}</p>}>
       <SeriesChart points={points} unit={unit(code)} name={t(...indicatorLabels[code])} />
     </Suspense>}
-    {retailBasis(code) ? <RetailTable code={code} rows={rows} official /> : <div className="overflow-x-auto"><table className="w-full text-left text-sm tabular-nums" aria-label={t('预览明细', 'Preview observations')}>
+    {retailBasis(code) ? <RetailTable code={code} rows={rows} official releases={entry.releases} /> : <div className="overflow-x-auto"><table className="w-full text-left text-sm tabular-nums" aria-label={t('预览明细', 'Preview observations')}>
       <thead className="bg-[#eef3ee]"><tr>{[monthly ? t('月份','Month') : t('季度','Quarter'), t('指标','Indicator'), t('数值','Value'), t('单位','Unit')].map(label =>
         <th key={label} scope="col">{label}</th>)}</tr></thead>
       <tbody>{rows.map(r => <tr key={r.period + r.code}><th scope="row">{r.period}</th><td>{t(...indicatorLabels[r.code])}</td><td>{r.value}</td><td>{unit(r.code)}</td></tr>)}</tbody>
     </table></div>}
   </section>
+}
+
+function VersionedPreview({ entry, ...props }: ImportProps & { entry: CatalogEntry }) {
+  const { t } = useLanguage()
+  const [versions, setVersions] = useState<CatalogVersion[]>([])
+  const [selected, setSelected] = useState<number>()
+  const [snapshot, setSnapshot] = useState<{ id: number; data: CatalogSnapshot }>()
+  const [notice, setNotice] = useState<UiText>()
+  const [error, setError] = useState<UiText>()
+  const [pending, setPending] = useState(true)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    listCatalogVersions(entry.id, controller.signal)
+      .then(list => { setVersions(list); setSelected(list[0]?.id) })
+      .catch(reason => { if (!controller.signal.aborted) setError(errorMessage(reason)) })
+      .finally(() => { if (!controller.signal.aborted) setPending(false) })
+    return () => controller.abort()
+  }, [entry.id])
+
+  useEffect(() => {
+    if (selected === undefined) return
+    const controller = new AbortController()
+    getCatalogVersion(entry.id, selected, controller.signal)
+      .then(data => { if (!controller.signal.aborted) setSnapshot({ id: selected, data }) })
+      .catch(reason => { if (!controller.signal.aborted) setError(errorMessage(reason)) })
+    return () => controller.abort()
+  }, [entry.id, selected])
+
+  async function check() {
+    setError(undefined)
+    setNotice(undefined)
+    setPending(true)
+    try {
+      const result = await checkCatalog(entry.id)
+      const list = await listCatalogVersions(entry.id)
+      setVersions(list)
+      setSelected(result.id)
+      setNotice(result.changed
+        ? [`已保存新版本 #${result.id}，截至 ${result.end}。`, `Saved version #${result.id}, through ${result.end}.`]
+        : [`已检查，截至 ${result.end}，无变更。`, `Checked through ${result.end}. No changes.`])
+    } catch (failure) {
+      setError(errorMessage(failure))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const current = snapshot?.id === selected ? snapshot : undefined
+  return <div className="min-w-0 space-y-4">
+    <section className="panel flex flex-wrap items-end gap-3 p-4">
+      <label>{t('版本历史', 'Version history')}
+        <select aria-label={t('版本历史', 'Version history')} value={selected ?? ''} disabled={pending || props.busy || !versions.length}
+          onChange={e => { setError(undefined); setSelected(Number(e.target.value)) }}>
+          {versions.map(v => <option key={v.id} value={v.id}>#{v.id} · {v.end} · {v.created_at.slice(0, 10)}</option>)}
+        </select>
+      </label>
+      <button type="button" onClick={check} disabled={pending || props.busy}>
+        {pending ? t('正在检查…', 'Checking…') : t('立即检查', 'Check now')}
+      </button>
+      {notice && <p className="w-full text-sm" role="status">{t(...notice)}</p>}
+      {error && <p className="w-full text-sm text-red-800" role="alert">{t(...error)}</p>}
+    </section>
+    {current ? <Preview key={current.id} entry={{ ...entry, ...current.data }} versionId={current.id} {...props} />
+      : <Preview entry={entry} {...props} busy={true} />}
+  </div>
 }
 
 export function DataCenter(props: ImportProps) {
@@ -119,7 +188,8 @@ export function DataCenter(props: ImportProps) {
           <span className="mt-1 block text-xs font-normal">{t(...item.kind)} · {item.rows[0].period} – {item.rows.at(-1)!.period}</span>
         </button>)}</div>
     </aside>
-    {active ? <Preview key={active.id} entry={active} {...props} /> :
+    {active ? active.releases ? <VersionedPreview key={active.id} entry={active} {...props} />
+      : <Preview key={active.id} entry={active} {...props} /> :
       <p className="panel notice">{t('未找到数据集。试试 GDP、CPI 或预测。', 'No matching datasets. Try GDP, CPI or forecast.')}</p>}
   </div>
 }

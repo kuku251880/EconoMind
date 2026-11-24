@@ -41,7 +41,7 @@ function Results({ series }: { series: IndicatorSeries }) {
   const { t } = useLanguage()
   const name = t(...indicatorLabels[series.code])
   const unit = displayUnit(series.unit, t)
-  const releases = accountsReleases(series.source)
+  const releases = series.version_id ? series.releases : accountsReleases(series.source)
   const nominal = !!releases
   const yoy = nominal ? t("名义同比", "Nominal year over year") : t("同比", "Year over year")
   const qoq = nominal ? t("名义环比（未季调）", "Nominal quarter over quarter (unadjusted)") : t("环比", "Quarter over quarter")
@@ -96,7 +96,7 @@ function Results({ series }: { series: IndicatorSeries }) {
             </thead>
             <tbody>
               {series.points.map((point) => {
-                const original = nominal && releases.find(r => r.period === point.period)
+                const original = releases?.find(r => r.period === point.period)
                 return (
                 <tr key={point.period}>
                   <th scope="row">{nominal && original ? <a className="underline text-[#175943]" href={original.url} target="_blank" rel="noreferrer"
@@ -244,6 +244,7 @@ function Dashboard({ account, onLogout }: { account: Account; onLogout: () => vo
               <div className="min-w-0">
                 <p className="text-sm">{t('当前数据集', 'Current dataset')} · #{filters.datasetId}</p>
                 <h2 className="mt-1 break-words text-xl font-semibold">{title ? t(...title) : selection.source}</h2>
+                {result.status === 'ready' && result.series.version_id && <p className="mt-1 text-sm">{t('导入版本', 'Imported version')} #{result.series.version_id}</p>}
                 <p className="mt-2 text-sm">{t(...indicatorLabels[filters.code])} · {filters.start} – {filters.end}</p>
               </div>
               <button type="button" className="secondary-button" onClick={chooseDataset}>{t('更换数据集', 'Change dataset')}</button>

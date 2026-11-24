@@ -18,7 +18,29 @@ export interface SeriesPoint {
   qoq_percent: string | null
 }
 
+export interface CatalogRelease {
+  period: string
+  date: string
+  url: string
+  share_kind?: string
+  survey_base?: string
+  edition?: string
+}
+
+export interface CatalogVersion {
+  id: number
+  created_at: string
+  end: string
+}
+
+export interface CatalogSnapshot {
+  rows: { code: IndicatorCode; period: string; value: string }[]
+  releases: CatalogRelease[]
+}
+
 export interface IndicatorSeries {
+  version_id?: number | null
+  releases?: CatalogRelease[]
   dataset_id: number
   code: IndicatorCode
   source: string
@@ -81,6 +103,9 @@ const apiDetails: Record<string, UiText> = {
 function apiErrorText(status: number, detail: unknown): UiText {
   if (typeof detail === 'string') {
     if (Object.hasOwn(apiDetails, detail)) return apiDetails[detail]
+    if (detail.startsWith('NBS update could not be validated:')) {
+      return ['国家统计局页面暂不可用或表格未通过校验。已保留现有版本，可稍后重试。', 'NBS pages were unavailable or failed validation. Existing versions are preserved. Try again later.']
+    }
     const row = /^line (\d+): (.+)$/.exec(detail)
     if (row) {
       const reason = Object.hasOwn(apiDetails, row[2]) ? apiDetails[row[2]] : ['CSV 格式无效。', 'Invalid CSV format.']
@@ -215,4 +240,22 @@ export function fetchForecast({ datasetId, code, start, end }: Filters, signal: 
   return apiRequest<ForecastComparison>(
     `/datasets/${encodeURIComponent(datasetId)}/indicators/${code}/forecast?${query}`, { signal },
   )
+}
+
+export function listCatalogVersions(view: string, signal?: AbortSignal) {
+  return apiRequest<CatalogVersion[]>(`/catalog/${view}`, { signal })
+}
+
+export function getCatalogVersion(view: string, id: number, signal?: AbortSignal) {
+  return apiRequest<CatalogSnapshot>(`/catalog/${view}/versions/${id}`, { signal })
+}
+
+export function checkCatalog(view: string) {
+  return apiRequest<{ id: number; changed: boolean; end: string }>(`/catalog/${view}/check`, { method: 'POST', headers: mutationHeaders })
+}
+
+export function importCatalogVersion(view: string, id: number, start: string, end: string) {
+  return apiRequest<{ dataset_id: number }>(`/catalog/${view}/versions/${id}/import`, {
+    method: 'POST', headers: { ...mutationHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ start, end }),
+  })
 }
