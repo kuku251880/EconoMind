@@ -6,6 +6,8 @@ import type { Account, DatasetRecord, Filters, IndicatorCode, IndicatorSeries } 
 import { AccountForm } from './AccountForm'
 import { DataCenter } from './DataCenter'
 import { ComparisonPanel } from './ComparisonPanel'
+import { PriceAnalysis } from './PriceAnalysis'
+import { isPriceCode } from './prices'
 import { RetailAnalysis } from './RetailAnalysis'
 import { retailBasis } from './retail'
 import { catalog, accountsReleases } from './catalog'
@@ -18,6 +20,7 @@ import './styles.css'
 
 const SeriesChart = lazy(() => import('./SeriesChart'))
 const defaults: Filters = { datasetId: '', code: 'gdp', start: '2024-Q1', end: '2025-Q1' }
+const monthPattern = '(?!0000)[0-9]{4}-(0[1-9]|1[0-2])'
 const periodPattern = '(?!0000)[0-9]{4}-Q[1-4]'
 
 type QueryResult =
@@ -126,6 +129,7 @@ function Dashboard({ account, onLogout }: { account: Account; onLogout: () => vo
   }, [page])
   const [importing, setImporting] = useState(false)
   const [draft, setDraft] = useState(defaults)
+  const monthly = isPriceCode(draft.code)
   const [filters, setFilters] = useState<Filters | null>(null)
   const [validation, setValidation] = useState(false)
   const [result, setResult] = useState<QueryResult>({ status: 'idle' })
@@ -253,17 +257,17 @@ function Dashboard({ account, onLogout }: { account: Account; onLogout: () => vo
                     {selection.codes.map(code => <option key={code} value={code}>{t(...indicatorLabels[code])}</option>)}
                   </select>
                 </div>
-                <label>{t("起始季度", "Start quarter")}
-                  <input required spellCheck={false} pattern={periodPattern} title={t("格式示例：2024-Q1", "Example: 2024-Q1")}
+                <label>{monthly ? t("起始月份", "Start month") : t("起始季度", "Start quarter")}
+                  <input required spellCheck={false} pattern={monthly ? monthPattern : periodPattern} title={monthly ? "2025-01" : "2024-Q1"}
                     value={draft.start} onChange={(event) => setDraft({ ...draft, start: event.target.value })} />
                 </label>
-                <label>{t("结束季度", "End quarter")}
-                  <input required spellCheck={false} pattern={periodPattern} title={t("格式示例：2025-Q1", "Example: 2025-Q1")}
+                <label>{monthly ? t("结束月份", "End month") : t("结束季度", "End quarter")}
+                  <input required spellCheck={false} pattern={monthly ? monthPattern : periodPattern} title={monthly ? "2025-12" : "2025-Q1"}
                     value={draft.end} onChange={(event) => setDraft({ ...draft, end: event.target.value })} />
                 </label>
                 <button type="submit">{t("查询指标", "Search indicators")}</button>
               </div>
-              {validation && <p className="mt-3 text-sm text-red-800" role="alert">{t("起始季度须早于或等于结束季度。", "The start quarter must be on or before the end quarter.")}</p>}
+              {validation && <p className="mt-3 text-sm text-red-800" role="alert">{t("起始时间须早于或等于结束时间。", "The start must be on or before the end.")}</p>}
             </form>
           </> : <section className="panel analysis-empty">
             <h2 className="text-xl font-semibold">{t('选择要分析的数据集', 'Choose a dataset to analyze')}</h2>
@@ -272,15 +276,16 @@ function Dashboard({ account, onLogout }: { account: Account; onLogout: () => vo
           </section>}
           {result.status === 'loading' && <p className="panel notice" role="status">{t("正在读取指标…", "Loading indicators…")}</p>}
           {result.status === 'error' && <p className="panel notice text-red-800" role="alert">{t(...result.message)}</p>}
-          {result.status === 'ready' && filters && selection && !retailBasis(filters.code) && filters.code !== 'cpi' && selection.codes.some(c => c !== filters.code && c !== 'cpi' && !retailBasis(c)) &&
+          {result.status === 'ready' && filters && selection && !isPriceCode(filters.code) && !retailBasis(filters.code) && filters.code !== 'cpi' && selection.codes.some(c => c !== filters.code && c !== 'cpi' && !retailBasis(c)) &&
             <ComparisonPanel key={'comparison-' + JSON.stringify(filters)} filters={filters} primary={result.series} codes={selection.codes} />}
-          {result.status === 'ready' && filters && (retailBasis(filters.code)
-            ? <RetailAnalysis key={'retail-' + JSON.stringify(filters)} filters={filters} primary={result.series} />
+          {result.status === 'ready' && filters && (isPriceCode(filters.code)
+            ? <PriceAnalysis key={'price-' + JSON.stringify(filters)} filters={filters} primary={result.series} />
+            : retailBasis(filters.code) ? <RetailAnalysis key={'retail-' + JSON.stringify(filters)} filters={filters} primary={result.series} />
             : <Results series={result.series} />)}
-          {result.status === 'ready' && filters && retailBasis(filters.code) !== 'ytd' && !filters.code.startsWith('online_share_') && (
+          {result.status === 'ready' && filters && !isPriceCode(filters.code) && retailBasis(filters.code) !== 'ytd' && !filters.code.startsWith('online_share_') && (
             <ForecastPanel key={'forecast-' + JSON.stringify(filters)} filters={filters} />
           )}
-          {result.status === 'ready' && filters && (
+          {result.status === 'ready' && filters && !isPriceCode(filters.code) && (
             <ResearchPanel key={JSON.stringify(filters)} filters={filters} canCompare={!!selection?.codes.includes('gdp') && selection.codes.includes('cpi') && ['gdp','cpi'].includes(filters.code)} />
           )}
         </div>

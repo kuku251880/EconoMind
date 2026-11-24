@@ -207,6 +207,7 @@ try {
             ('"{0}"' -f $vite), '--host','127.0.0.1','--port','5173','--strictPort'
         ) -WindowStyle Hidden -Environment @{ ECONOMIND_API_TARGET = 'http://127.0.0.1:8000' } -RedirectStandardOutput (Join-Path $logs 'frontend.out.log') -RedirectStandardError $webLog -PassThru
         Wait-Http $address '<title>EconoMind' $web $webLog
+        Wait-Http ($address + 'api/v1/indicators/gdp') '"code":"gdp"' $web $webLog
     }
     if (-not (Test-Http ($address + 'api/v1/indicators/gdp') '"code":"gdp"')) {
         throw 'The frontend is running but could not reach the EconoMind API.'

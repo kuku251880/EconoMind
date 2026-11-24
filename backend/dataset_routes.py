@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 
 from backend.accounts import Database, SignedIn, require_browser_header
-from backend.series import MAX_CSV_BYTES, dataset_access, datasets, decode_csv, import_csv, observations, quarter_label
+from backend.series import MAX_CSV_BYTES, dataset_access, datasets, decode_csv, import_csv, observations, period_label
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["datasets"])
 
@@ -47,8 +47,8 @@ def list_datasets(account: SignedIn, engine: Database) -> list[DatasetRecord]:
         DatasetRecord(
             id=record["id"], source=record["source"], owned=record["owned"],
             observation_count=record["observation_count"], codes=sorted(record["codes"] or []),
-            first_period=quarter_label(record["first_quarter"]) if record["first_quarter"] is not None else None,
-            last_period=quarter_label(record["last_quarter"]) if record["last_quarter"] is not None else None,
+            first_period=period_label(record["first_quarter"]) if record["first_quarter"] is not None else None,
+            last_period=period_label(record["last_quarter"]) if record["last_quarter"] is not None else None,
         )
         for record in records
     ]

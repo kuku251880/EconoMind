@@ -2,6 +2,7 @@ import type { IndicatorCode } from './api'
 import { indicatorLabels } from './i18n'
 import type { UiText } from './i18n'
 import releases from './catalog/china-national-accounts.json'
+import { priceEntry } from './prices'
 import { retailMethod, retailReleases, retailRows, retailSource } from './retail'
 import quarterly from './catalog/sample-quarterly.csv?raw'
 import forecast from './catalog/sample-forecast.csv?raw'
@@ -52,6 +53,7 @@ function officialEntry(id: string, category: Category, title: UiText, codes: Acc
 }
 
 export const catalog: CatalogEntry[] = [
+  priceEntry,
   officialEntry('china-gdp', 'macro', ['中国 GDP · 季度数据', 'China GDP · Quarterly data'], ['gdp']),
   officialEntry('china-industries', 'industry', ['三次产业季度增加值', 'Quarterly value added by industry'],
     ['primary', 'secondary', 'tertiary', 'gdp']),

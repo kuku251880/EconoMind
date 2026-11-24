@@ -7,7 +7,7 @@ from openai import APIStatusError, OpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from backend.accounts import Database, SignedIn, require_browser_header
-from backend.series import INDICATORS, IndicatorCode, quarter_number, query_series
+from backend.series import INDICATORS, MONTHLY_CODES, IndicatorCode, quarter_number, query_series
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["research"], max_body_size=8192)
 MAX_QUARTERS = 40
@@ -155,6 +155,8 @@ def research(
         raise HTTPException(422, "季度格式应类似 2025-Q1。") from error
     if not 0 <= end - start < MAX_QUARTERS:
         raise HTTPException(422, f"请选择顺序正确且不超过 {MAX_QUARTERS} 个季度的范围。")
+    if any(code in MONTHLY_CODES for code in body.codes):
+        raise HTTPException(422, "Research requires quarterly indicators.")
     evidence = []
     sources = []
     for code in dict.fromkeys(body.codes):

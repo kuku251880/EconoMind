@@ -5,6 +5,7 @@ import { catalog, categories, matches } from './catalog'
 import type { CatalogEntry, Category } from './catalog'
 import { displayUnit, indicatorLabels, useLanguage } from './i18n'
 import { RetailTable } from './RetailAnalysis'
+import { isPriceCode } from './prices'
 import { retailBasis } from './retail'
 import type { UiText } from './i18n'
 
@@ -28,7 +29,8 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
   const csv = ['code,period,value', ...rows.map(r => [r.code, r.period, r.value].join(',')), ''].join('\r\n')
   const filename = `${entry.id}_${start}_${end}.csv`
   const points = rows.filter(row => row.code === code)
-  const unit = (indicator: IndicatorCode) => displayUnit(indicator === 'cpi' ? '指数点' : indicator.startsWith('online_share_') ? '%' : '亿元', t)
+  const monthly = isPriceCode(code)
+  const unit = (indicator: IndicatorCode) => displayUnit(indicator === 'cpi' || indicator.endsWith('_index') ? '指数点' : isPriceCode(indicator) || indicator.startsWith('online_share_') ? '%' : '亿元', t)
 
   async function importSelection() {
     setBusy(true)
@@ -54,16 +56,16 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
       '信息传输、软件和信息技术服务业属于第三产业，第三产业金额已包含该行业。',
       'The tertiary industry total already includes information transmission, software and IT services.')}</p>}
     {entry.releases && <details className="mt-3 text-sm">
-      <summary className="cursor-pointer font-semibold">{t('逐季来源与发布日期', 'Quarterly sources and release dates')}</summary>
+      <summary className="cursor-pointer font-semibold">{monthly ? t('逐月原表与发布日期', 'Monthly sources and release dates') : t('逐季来源与发布日期', 'Quarterly sources and release dates')}</summary>
       <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2">{entry.releases.filter(r => r.period >= start && r.period <= end).map(({period, date, url}) =>
         <li key={period}><a className="underline" href={url} target="_blank" rel="noreferrer">{period} · {date}</a></li>)}</ul>
     </details>}
     <fieldset disabled={busy} className="mt-5 grid gap-3 border-t border-stone-200 pt-4 sm:grid-cols-3">
-      <label>{t('起始季度', 'Start quarter')}<select value={start} onChange={e => {
+      <label>{monthly ? t('起始月份', 'Start month') : t('起始季度', 'Start quarter')}<select value={start} onChange={e => {
         setStart(e.target.value)
         if (e.target.value > end) setEnd(e.target.value)
       }}>{quarters.map(q => <option key={q}>{q}</option>)}</select></label>
-      <label>{t('结束季度', 'End quarter')}<select value={end} onChange={e => setEnd(e.target.value)}>
+      <label>{monthly ? t('结束月份', 'End month') : t('结束季度', 'End quarter')}<select value={end} onChange={e => setEnd(e.target.value)}>
         {quarters.filter(q => q >= start).map(q => <option key={q}>{q}</option>)}
       </select></label>
       {codes.length > 1 && <label>{t('图表指标', 'Chart indicator')}<select value={code} onChange={e => setCode(e.target.value as IndicatorCode)}>
@@ -82,7 +84,7 @@ function Preview({ entry, busy, setBusy, onImported }: ImportProps & { entry: Ca
       <SeriesChart points={points} unit={unit(code)} name={t(...indicatorLabels[code])} />
     </Suspense>}
     {retailBasis(code) ? <RetailTable code={code} rows={rows} official /> : <div className="overflow-x-auto"><table className="w-full text-left text-sm tabular-nums" aria-label={t('预览明细', 'Preview observations')}>
-      <thead className="bg-[#eef3ee]"><tr>{[t('季度','Quarter'), t('指标','Indicator'), t('数值','Value'), t('单位','Unit')].map(label =>
+      <thead className="bg-[#eef3ee]"><tr>{[monthly ? t('月份','Month') : t('季度','Quarter'), t('指标','Indicator'), t('数值','Value'), t('单位','Unit')].map(label =>
         <th key={label} scope="col">{label}</th>)}</tr></thead>
       <tbody>{rows.map(r => <tr key={r.period + r.code}><th scope="row">{r.period}</th><td>{t(...indicatorLabels[r.code])}</td><td>{r.value}</td><td>{unit(r.code)}</td></tr>)}</tbody>
     </table></div>}

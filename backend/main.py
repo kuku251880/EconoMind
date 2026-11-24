@@ -11,7 +11,7 @@ from backend.accounts import find_account, require_database, router as accounts_
 from backend.dataset_routes import router as datasets_router
 from backend.forecast_routes import router as forecast_router
 from backend.research import router as research_router
-from backend.series import INDICATORS, IndicatorCode, quarter_number, query_series
+from backend.series import INDICATORS, IndicatorCode, period_number, query_series
 
 
 class Indicator(BaseModel):
@@ -75,7 +75,7 @@ def get_series(
     end: Annotated[str, Query()],
 ):
     try:
-        first, last = quarter_number(start), quarter_number(end)
+        first, last = period_number(start, code), period_number(end, code)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
     if first > last:

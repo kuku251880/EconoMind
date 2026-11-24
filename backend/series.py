@@ -50,6 +50,12 @@ class IndicatorCode(StrEnum):
     PRIMARY = "primary"
     SECONDARY = "secondary"
     TERTIARY = "tertiary"
+    CPI_INDEX = "cpi_index"
+    CPI_YOY = "cpi_yoy"
+    CPI_MOM = "cpi_mom"
+    CORE_INDEX = "core_index"
+    CORE_YOY = "core_yoy"
+    CORE_MOM = "core_mom"
     INFO_SERVICES = "info_services"
     ONLINE_YTD = "online_ytd"
     RETAIL_YTD = "retail_ytd"
@@ -62,7 +68,17 @@ class IndicatorCode(StrEnum):
 YTD_CODES = {"online_ytd", "retail_ytd", "online_share_ytd"}
 SHARE_CODES = {"online_share_ytd", "online_share_qtr"}
 
+MONTHLY_CODES = {"cpi_index", "cpi_yoy", "cpi_mom", "core_index", "core_yoy", "core_mom"}
+# Keep month ordinals disjoint from all supported quarter ordinals.
+MONTH_OFFSET = 100_000
+
 INDICATORS = {
+    "cpi_index": ("月度 CPI 指数（上年同月＝100）", "指数点"),
+    "cpi_yoy": ("月度 CPI 官方同比", "%"),
+    "cpi_mom": ("月度 CPI 官方环比", "%"),
+    "core_index": ("月度核心 CPI 指数（上年同月＝100）", "指数点"),
+    "core_yoy": ("月度核心 CPI 官方同比", "%"),
+    "core_mom": ("月度核心 CPI 官方环比", "%"),
     "online_ytd": ("实物商品网上零售额（累计）", "亿元"),
     "retail_ytd": ("社会消费品零售总额（累计）", "亿元"),
     "online_share_ytd": ("实物网零占社零比重（累计）", "%"),
@@ -99,7 +115,7 @@ def init_database(engine):
         connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)"))
         for code, (name, unit) in INDICATORS.items():
             statement = insert(indicators).values(
-                code=code, name=name, unit=unit, frequency="quarterly",
+                code=code, name=name, unit=unit, frequency="monthly" if code in MONTHLY_CODES else "quarterly",
             )
             connection.execute(statement.on_conflict_do_nothing(index_elements=["code"]))
 
@@ -115,6 +131,21 @@ def quarter_label(quarter):
     return f"{year:04d}-Q{offset + 1}"
 
 
+def period_number(period, code):
+    if code not in MONTHLY_CODES:
+        return quarter_number(period)
+    if not re.fullmatch(r"[0-9]{4}-(?:0[1-9]|1[0-2])", period) or period[:4] == "0000":
+        raise ValueError("expected a month like 2025-01 with year 0001 to 9999")
+    return MONTH_OFFSET + int(period[:4]) * 12 + int(period[-2:]) - 1
+
+
+def period_label(number):
+    if number < MONTH_OFFSET:
+        return quarter_label(number)
+    year, month = divmod(number - MONTH_OFFSET, 12)
+    return f"{year:04d}-{month + 1:02d}"
+
+
 def read_csv(stream):
     reader = csv.reader(stream, strict=True)
     rows = {}
@@ -128,7 +159,7 @@ def read_csv(stream):
                 code, period, value = (field.strip() for field in fields)
                 if code not in INDICATORS:
                     raise ValueError("unknown indicator code")
-                quarter = quarter_number(period)
+                quarter = period_number(period, code)
                 if not re.fullmatch(NUMBER_PATTERN, value):
                     raise ValueError("expected up to 12 integer and 6 decimal digits")
                 key = (code, quarter)
@@ -141,6 +172,8 @@ def read_csv(stream):
         raise ValueError(f"line {reader.line_num}: invalid CSV: {error}") from error
     if not rows:
         raise ValueError("CSV has no observations")
+    if len({code in MONTHLY_CODES for code, _ in rows}) > 1:
+        raise ValueError("monthly and quarterly observations require separate datasets")
     return rows
 
 
@@ -205,7 +238,7 @@ def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
             .order_by(observations.c.quarter)
         ).all()
         values = {quarter: value for quarter, value in rows}
-    yoy_applicable = code not in SHARE_CODES
+    yoy_applicable = code not in SHARE_CODES and code not in MONTHLY_CODES
     qoq_applicable = yoy_applicable and code not in YTD_CODES
     return {
         **info,
@@ -213,7 +246,7 @@ def query_series(engine, dataset_id, code, start, end, *, viewer_id=None):
         "code": code,
         "points": [
             {
-                "period": quarter_label(quarter),
+                "period": period_label(quarter),
                 "value": value,
                 "yoy_percent": growth_percent(value, values.get(quarter - 4)) if yoy_applicable else None,
                 "qoq_percent": growth_percent(value, values.get(quarter - 1)) if qoq_applicable else None,

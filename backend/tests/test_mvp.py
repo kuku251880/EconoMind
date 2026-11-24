@@ -10,7 +10,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from backend.main import app
-from backend.series import datasets, engine_for, import_csv, init_database, quarter_number, query_series, users
+from backend.series import datasets, engine_for, import_csv, init_database, period_number, quarter_number, query_series, users
 
 PASSWORD = "example-passphrase-123"
 HEADERS = {"X-EconoMind-Request": "1"}
@@ -161,3 +161,16 @@ def test_retail_growth_respects_measure_and_year_boundary(database):
     for code in ("online_share_ytd", "online_share_qtr"):
         assert point(code)["qoq_percent"] is None
         assert point(code)["yoy_percent"] is None
+
+def test_monthly_price_import_preserves_periods_and_published_rates(database):
+    csv = "code,period,value\ncpi_index,2025-01,100.5\ncpi_yoy,2025-01,0.5\ncpi_yoy,2025-02,-0.7\n"
+    dataset = import_csv(database, StringIO(csv), "Monthly prices")
+    first = period_number("2025-01", "cpi_yoy")
+    last = period_number("2025-02", "cpi_yoy")
+    series = query_series(database, dataset, "cpi_yoy", first, last)
+    assert series["frequency"] == "monthly"
+    assert [p["period"] for p in series["points"]] == ["2025-01", "2025-02"]
+    assert [str(p["value"]) for p in series["points"]] == ["0.500000", "-0.700000"]
+    assert all(p["yoy_percent"] is None and p["qoq_percent"] is None for p in series["points"])
+    with pytest.raises(ValueError, match="separate datasets"):
+        import_csv(database, StringIO(csv + "gdp,2025-Q1,100\n"), "Mixed frequencies")

@@ -23,12 +23,16 @@ export default function SeriesChart({ points, unit, name, label, comparisons }: 
   useEffect(() => {
     if (!container.current) return
     const chart = init(container.current)
-    const quarterIndex = (period: string) => Number(period.slice(0, 4)) * 4 + Number(period.at(-1)) - 1
-    const samples = new Map(points.map((point) => [quarterIndex(point.period), Number(point.value)]))
+    const firstPoint = points[0] ?? comparisons?.find(series => series.points.length)?.points[0]
+    const monthly = firstPoint?.period.length === 7 && !firstPoint.period.includes('-Q')
+    const periodsPerYear = monthly ? 12 : 4
+    const periodIndex = (period: string) => Number(period.slice(0, 4)) * periodsPerYear
+      + Number(monthly ? period.slice(-2) : period.at(-1)) - 1
+    const samples = new Map(points.map((point) => [periodIndex(point.period), Number(point.value)]))
     const ranges = [points, ...(comparisons ?? []).map(series => series.points)].filter(series => series.length)
     if (!ranges.length) { chart.dispose(); return }
-    const start = Math.min(...ranges.map(series => quarterIndex(series[0].period)))
-    const end = Math.max(...ranges.map(series => quarterIndex(series.at(-1)!.period)))
+    const start = Math.min(...ranges.map(series => periodIndex(series[0].period)))
+    const end = Math.max(...ranges.map(series => periodIndex(series.at(-1)!.period)))
     const timeline = Array.from({ length: end - start + 1 }, (_, offset) => start + offset)
     chart.setOption({
       animation: false,
@@ -38,7 +42,7 @@ export default function SeriesChart({ points, unit, name, label, comparisons }: 
       xAxis: {
         type: 'category',
         boundaryGap: timeline.length === 1,
-        data: timeline.map((quarter) => `${String(Math.floor(quarter / 4)).padStart(4, '0')}-Q${quarter % 4 + 1}`),
+        data: timeline.map((quarter) => `${String(Math.floor(quarter / periodsPerYear)).padStart(4, '0')}-${monthly ? String(quarter % 12 + 1).padStart(2, '0') : 'Q' + (quarter % 4 + 1)}`),
         axisLabel: { color: '#5f7069', hideOverlap: true },
         axisLine: { lineStyle: { color: '#cedbd3' } },
       },
@@ -53,7 +57,7 @@ export default function SeriesChart({ points, unit, name, label, comparisons }: 
         symbolSize: 8, itemStyle: { color: '#087f68' }, lineStyle: { width: 3 },
         areaStyle: comparisons ? undefined : { color: 'rgba(8, 127, 104, 0.09)' },
       }, ...(comparisons ?? []).map((comparison, index) => {
-        const values = new Map(comparison.points.map((point) => [quarterIndex(point.period), Number(point.value)]))
+        const values = new Map(comparison.points.map((point) => [periodIndex(point.period), Number(point.value)]))
         const color = index === 0 ? '#536a9e' : '#a55019'
         return {
           name: comparison.name,
@@ -72,5 +76,5 @@ export default function SeriesChart({ points, unit, name, label, comparisons }: 
     }
   }, [points, name, comparisons])
 
-  return <div ref={container} className="h-72 w-full sm:h-88" role="img" aria-label={t(`${label ?? name + "季度趋势"}，单位${unit}`, `${label ?? name + " trend"}, in ${unit}`)} />
+  return <div ref={container} className="h-72 w-full sm:h-88" role="img" aria-label={t(`${label ?? name + "趋势"}，单位${unit}`, `${label ?? name + " trend"}, in ${unit}`)} />
 }

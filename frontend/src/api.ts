@@ -1,6 +1,7 @@
 import type { UiText } from './i18n'
 
 export type IndicatorCode = 'gdp' | 'cpi' | 'primary' | 'secondary' | 'tertiary' | 'info_services'
+  | 'cpi_index' | 'cpi_yoy' | 'cpi_mom' | 'core_index' | 'core_yoy' | 'core_mom'
   | 'online_ytd' | 'retail_ytd' | 'online_share_ytd' | 'online_qtr' | 'retail_qtr' | 'online_share_qtr'
 
 export interface Filters {
@@ -57,6 +58,8 @@ class ApiError extends Error {
 
 const apiDetails: Record<string, UiText> = {
   'expected header code,period,value': ['表头应为 code,period,value。', 'Expected the header code,period,value.'],
+  'monthly and quarterly observations require separate datasets': ['月度和季度观测值请分别导入。', 'Import monthly and quarterly observations as separate datasets.'],
+  'expected a month like 2025-01 with year 0001 to 9999': ['月份格式应类似 2025-01，年份为 0001 至 9999。', 'Use a month such as 2025-01, with a year from 0001 to 9999.'],
   'expected three columns': ['每行应包含三列。', 'Each row must contain three columns.'],
   'unknown indicator code': ['指标代码无效，请参照数据中心下载的 CSV。', 'Unknown indicator code. Check a CSV from the data center.'],
   'expected a quarter like 2025-Q1 with year 0001 to 9999': ['季度格式应类似 2025-Q1，年份为 0001 至 9999。', 'Use a quarter such as 2025-Q1, with a year from 0001 to 9999.'],

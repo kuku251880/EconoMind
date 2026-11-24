@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from backend.accounts import Database, SignedIn
 from backend.forecast import compare_forecasts
-from backend.series import YTD_CODES, SHARE_CODES, IndicatorCode, quarter_number, query_series
+from backend.series import MONTHLY_CODES, YTD_CODES, SHARE_CODES, IndicatorCode, quarter_number, query_series
 
 router = APIRouter(prefix="/api/v1/datasets", tags=["forecasts"])
 
@@ -45,7 +45,7 @@ def forecast_indicator(
     account: SignedIn,
     engine: Database,
 ) -> ForecastComparison:
-    if code in YTD_CODES or code in SHARE_CODES:
+    if code in YTD_CODES or code in SHARE_CODES or code in MONTHLY_CODES:
         raise HTTPException(422, "Select a quarterly amount for forecasting.")
     try:
         first, last = quarter_number(start), quarter_number(end)

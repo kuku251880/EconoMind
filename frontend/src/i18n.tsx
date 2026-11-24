@@ -63,6 +63,12 @@ export const indicatorLabels: Record<import('./api').IndicatorCode, UiText> = {
   online_qtr: ['实物商品网上零售额（当季）', 'Online retail sales of physical goods (quarter)'],
   retail_qtr: ['社会消费品零售总额（当季）', 'Total retail sales of consumer goods (quarter)'],
   online_share_qtr: ['实物网零占社零比重（当季）', 'Online physical goods share of total retail (quarter)'],
+  cpi_index: ['CPI 指数（上年同月＝100）', 'CPI index (same month previous year = 100)'],
+  cpi_yoy: ['CPI 官方同比', 'CPI official year-on-year change'],
+  cpi_mom: ['CPI 官方环比', 'CPI official month-on-month change'],
+  core_index: ['核心 CPI 指数（上年同月＝100）', 'Core CPI index (same month previous year = 100)'],
+  core_yoy: ['核心 CPI 官方同比', 'Core CPI official year-on-year change'],
+  core_mom: ['核心 CPI 官方环比', 'Core CPI official month-on-month change'],
   info_services: ['信息传输、软件和信息技术服务业增加值', 'Information transmission, software and IT services'],
   cpi: ['居民消费价格指数', 'Consumer price index'],
 }
